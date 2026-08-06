@@ -186,7 +186,25 @@ export function parseBuilderSheet(workbook) {
     }
   }
 
-  return items
+  // Only keep personnel postings (Security & Cleaning) — equipment/service
+  // lines like Medics, Fencing, and JOC Compliance have no Officer Type in
+  // the Builder sheet, so they're not part of the posting sheet.
+  const withPersonnelOnly = items.filter(
+    (it) => it.rowType !== 'LINE ITEM' || it.officerTypeName
+  )
+
+  // Drop section headers that end up with no line items under them
+  const finalItems = []
+  for (let i = 0; i < withPersonnelOnly.length; i++) {
+    const item = withPersonnelOnly[i]
+    if (item.rowType === 'SECTION HEADER') {
+      const next = withPersonnelOnly[i + 1]
+      if (!next || next.rowType === 'SECTION HEADER') continue
+    }
+    finalItems.push(item)
+  }
+
+  return finalItems
 }
 
 export async function parseQuotationFile(file) {
