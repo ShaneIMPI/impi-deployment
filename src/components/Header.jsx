@@ -2,7 +2,7 @@ export default function Header({ title }) {
   return (
     <header className="app-header print-header">
       <img
-        src={`${import.meta.env.BASE_URL}logo.png`}
+        src={`${import.meta.env.BASE_URL}logo.svg`}
         alt="IMPI"
         className="app-header-logo"
         onError={(e) => {
