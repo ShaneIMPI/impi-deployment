@@ -146,6 +146,47 @@ input, select { padding: 6px; }
 
 .event-meta { display: flex; gap: 24px; flex-wrap: wrap; margin-bottom: 12px; font-size: 14px; }
 
+.signature-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(35, 31, 32, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+.signature-modal {
+  background: white;
+  padding: 20px;
+  border-radius: 8px;
+  box-shadow: 0 8px 30px rgba(0,0,0,0.3);
+  max-width: 95vw;
+}
+.signature-modal h3 { margin: 0 0 10px; color: var(--impi-dark); }
+.signature-canvas {
+  border: 2px dashed #ccc;
+  border-radius: 4px;
+  touch-action: none;
+  max-width: 100%;
+  background: white;
+  cursor: crosshair;
+}
+.signature-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 12px;
+  justify-content: flex-end;
+}
+.signature-thumb {
+  height: 32px;
+  max-width: 90px;
+  object-fit: contain;
+  border: 1px solid #ccc;
+  border-radius: 3px;
+  cursor: pointer;
+  background: white;
+}
+
 @media print {
   .no-print, .no-print-input select, button { display: none !important; }
   body { background: white; }
