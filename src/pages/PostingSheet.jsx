@@ -3,6 +3,7 @@ import { useParams, Link } from 'react-router-dom'
 import { supabase } from '../supabaseClient'
 import { deriveSlotView } from '../lib/postingLogic'
 import Header from '../components/Header'
+import SignaturePad from '../components/SignaturePad'
 
 export default function PostingSheet() {
   const { eventId } = useParams()
@@ -12,6 +13,7 @@ export default function PostingSheet() {
   const [types, setTypes] = useState([])
   const [officers, setOfficers] = useState([])
   const [loading, setLoading] = useState(true)
+  const [signingSlotId, setSigningSlotId] = useState(null)
 
   useEffect(() => {
     load()
@@ -54,6 +56,17 @@ export default function PostingSheet() {
     types.forEach((t) => (m[t.type_name] = t))
     return m
   }, [types])
+
+  const { totalPostings, signedCount } = useMemo(() => {
+    const postingSlots = slots.filter((s) => {
+      const li = lineItemsById[s.line_item_id]
+      return li && li.row_type === 'LINE ITEM'
+    })
+    return {
+      totalPostings: postingSlots.length,
+      signedCount: postingSlots.filter((s) => s.signature_data).length,
+    }
+  }, [slots, lineItemsById])
 
   async function updateSlot(id, patch) {
     setSlots((prev) => prev.map((s) => (s.id === id ? { ...s, ...patch } : s)))
@@ -117,6 +130,9 @@ export default function PostingSheet() {
         </div>
         <div>
           <strong>TIMING:</strong> {event.timing}
+        </div>
+        <div>
+          <strong>SIGNED:</strong> {signedCount} of {totalPostings}
         </div>
       </div>
 
@@ -252,12 +268,36 @@ export default function PostingSheet() {
                     </button>
                   )}
                 </td>
-                <td className="sign-cell"></td>
+                <td className="sign-cell no-print-input">
+                  {slot.signature_data ? (
+                    <img
+                      src={slot.signature_data}
+                      alt="Signed"
+                      className="signature-thumb"
+                      onClick={() => setSigningSlotId(slot.id)}
+                    />
+                  ) : (
+                    <button className="no-print" onClick={() => setSigningSlotId(slot.id)}>
+                      Sign
+                    </button>
+                  )}
+                </td>
               </tr>
             )
           })}
         </tbody>
       </table>
+
+      {signingSlotId && (
+        <SignaturePad
+          initialValue={slots.find((s) => s.id === signingSlotId)?.signature_data || null}
+          onSave={(dataUrl) => {
+            updateSlot(signingSlotId, { signature_data: dataUrl })
+            setSigningSlotId(null)
+          }}
+          onClose={() => setSigningSlotId(null)}
+        />
+      )}
     </div>
   )
 }
