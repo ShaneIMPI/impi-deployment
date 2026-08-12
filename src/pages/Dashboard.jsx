@@ -21,6 +21,15 @@ export default function Dashboard() {
     setLoading(false)
   }
 
+  async function deleteEvent(ev) {
+    const ok = window.confirm(
+      `Delete "${ev.event_name}"?\n\nThis permanently removes its Posting Sheet and Pay Run data. This cannot be undone.`
+    )
+    if (!ok) return
+    await supabase.from('events').delete().eq('id', ev.id)
+    setEvents((prev) => prev.filter((e) => e.id !== ev.id))
+  }
+
   return (
     <div className="page">
       <Header title="Events" />
@@ -44,6 +53,7 @@ export default function Dashboard() {
               <th>Date</th>
               <th>Status</th>
               <th></th>
+              <th></th>
             </tr>
           </thead>
           <tbody>
@@ -56,6 +66,11 @@ export default function Dashboard() {
                 <td className="row-actions">
                   <Link to={`/events/${ev.id}/posting-sheet`}>Posting Sheet</Link>
                   <Link to={`/events/${ev.id}/pay-run`}>Pay Run</Link>
+                </td>
+                <td>
+                  <button className="btn-delete" onClick={() => deleteEvent(ev)}>
+                    Delete
+                  </button>
                 </td>
               </tr>
             ))}
