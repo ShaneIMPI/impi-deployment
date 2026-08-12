@@ -86,6 +86,7 @@ export default function PostingSheet() {
       id_number: o.id_number,
       psira_number: o.psira_number,
       bib_serial: o.bib_serial,
+      assigned_grade: o.psira_grade || '',
     })
   }
 
@@ -145,7 +146,7 @@ export default function PostingSheet() {
             <th>PSIRA No.</th>
             <th>BIB No.</th>
             <th>Posting</th>
-            <th>Grade Req.</th>
+            <th>PSIRA Grade</th>
             <th>Special Events</th>
             <th>Time In</th>
             <th>Time Out</th>
@@ -234,7 +235,15 @@ export default function PostingSheet() {
                     </span>
                   )}
                 </td>
-                <td>{view.grade}</td>
+                <td>
+                  <input
+                    className="print-input"
+                    value={slot.assigned_grade || ''}
+                    onChange={(e) => updateSlot(slot.id, { assigned_grade: e.target.value })}
+                    placeholder={`Req: ${view.grade}`}
+                    title={`Post requires: ${view.grade}`}
+                  />
+                </td>
                 <td className="checkbox-cell">
                   <input
                     type="checkbox"
