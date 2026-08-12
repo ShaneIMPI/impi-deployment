@@ -236,13 +236,20 @@ export default function PostingSheet() {
                   )}
                 </td>
                 <td>
-                  <input
+                  <select
                     className="print-input"
                     value={slot.assigned_grade || ''}
                     onChange={(e) => updateSlot(slot.id, { assigned_grade: e.target.value })}
-                    placeholder={`Req: ${view.grade}`}
                     title={`Post requires: ${view.grade}`}
-                  />
+                  >
+                    <option value="">— Select (Req: {view.grade}) —</option>
+                    <option value="N/A">N/A</option>
+                    <option value="Gr A">Gr A</option>
+                    <option value="Gr B">Gr B</option>
+                    <option value="Gr C">Gr C</option>
+                    <option value="Gr D">Gr D</option>
+                    <option value="Gr E">Gr E</option>
+                  </select>
                 </td>
                 <td className="checkbox-cell">
                   <input
