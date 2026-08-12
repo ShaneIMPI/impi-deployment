@@ -146,6 +146,19 @@ input, select { padding: 6px; }
 
 .event-meta { display: flex; gap: 24px; flex-wrap: wrap; margin-bottom: 12px; font-size: 14px; }
 
+.blank-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: #555;
+  cursor: pointer;
+}
+.posting-table input:disabled, .posting-table select:disabled {
+  background: #f0f0f0;
+  cursor: not-allowed;
+}
+
 .signature-overlay {
   position: fixed;
   inset: 0;
