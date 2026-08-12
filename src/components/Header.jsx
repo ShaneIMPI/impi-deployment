@@ -1,3 +1,5 @@
+import { Link } from 'react-router-dom'
+
 export default function Header({ title }) {
   return (
     <header className="app-header print-header">
@@ -15,6 +17,9 @@ export default function Header({ title }) {
         </div>
         {title && <h1 className="app-header-title">{title}</h1>}
       </div>
+      <Link to="/" className="app-header-home no-print">
+        ← Home
+      </Link>
     </header>
   )
 }
