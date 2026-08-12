@@ -52,7 +52,7 @@ export default function PayRun() {
   }, [types])
 
   function exportCsv() {
-    const rows = [['No.', 'Name & Surname', 'ID Number', 'PSIRA No.', 'BIB No.', 'Posting', 'Pay Rate', 'Shifts', 'Amount']]
+    const rows = [['No.', 'Name & Surname', 'ID Number', 'PSIRA No.', 'BIB No.', 'Posting', 'Pay Rate', 'Shifts', 'Amount', 'Confirmed']]
     let counter = 0
     let total = 0
     slots.forEach((slot) => {
@@ -76,6 +76,7 @@ export default function PayRun() {
         view.payRate,
         view.shifts,
         view.payAmount.toFixed(2),
+        slot.signature_data ? 'Yes' : 'No',
       ])
     })
     rows.push([])
@@ -128,6 +129,7 @@ export default function PayRun() {
             <th>Pay Rate</th>
             <th>Shifts</th>
             <th>Amount</th>
+            <th>Confirmed</th>
           </tr>
         </thead>
         <tbody>
@@ -138,7 +140,7 @@ export default function PayRun() {
             if (lineItem.row_type === 'SECTION HEADER') {
               return (
                 <tr key={slot.id} className="section-row">
-                  <td colSpan={9}>{lineItem.section_text}</td>
+                  <td colSpan={10}>{lineItem.section_text}</td>
                 </tr>
               )
             }
@@ -159,6 +161,9 @@ export default function PayRun() {
                 <td>R {Number(view.payRate).toFixed(2)}</td>
                 <td>{view.shifts}</td>
                 <td>R {view.payAmount.toFixed(2)}</td>
+                <td className="checkbox-cell">
+                  {slot.signature_data ? '✅' : '—'}
+                </td>
               </tr>
             )
           })}
@@ -169,6 +174,7 @@ export default function PayRun() {
             <td>
               <strong>R {total.toFixed(2)}</strong>
             </td>
+            <td></td>
           </tr>
         </tbody>
       </table>
