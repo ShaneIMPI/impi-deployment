@@ -97,7 +97,12 @@ export function parseSetupSheet(workbook) {
 //           endTime, sectionText, qty, officerTypeName, postingLocation, shifts }[]
 export function parseBuilderSheet(workbook) {
   const sheet = findSheet(workbook, 'Builder')
-  if (!sheet) throw new Error('Could not find a "Builder" sheet in this workbook.')
+  if (!sheet) {
+    throw new Error(
+      "This file isn't built from the IMPI Builder template — no \"Builder\" sheet found. " +
+      'Please recreate this quote using the standard IMPI template (download link below), then upload again.'
+    )
+  }
 
   const rows = sheetToRows(sheet)
   const { map, headerRowIdx } = headerMap(rows)
@@ -123,7 +128,9 @@ export function parseBuilderSheet(workbook) {
 
   if (cRowType === -1) {
     throw new Error(
-      'This does not look like an IMPI Builder sheet (missing "Row Type" column).'
+      "This file isn't built from the IMPI Builder template — the Builder sheet is missing " +
+      'expected columns (like "Row Type"). Please recreate this quote using the standard IMPI ' +
+      'template (download link below), then upload again.'
     )
   }
 
