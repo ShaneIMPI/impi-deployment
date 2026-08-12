@@ -41,6 +41,14 @@ body {
   letter-spacing: 0.03em;
 }
 .app-header-title { margin: 2px 0 0; font-size: 22px; color: var(--impi-dark); }
+.app-header-home {
+  margin-left: auto;
+  color: var(--impi-red);
+  text-decoration: none;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.app-header-home:hover { text-decoration: underline; }
 
 .top-nav { display: flex; gap: 16px; align-items: center; margin-bottom: 16px; flex-wrap: wrap; }
 .top-nav a:not(.btn-primary) { color: var(--impi-red); text-decoration: none; font-weight: 600; }
