@@ -43,7 +43,7 @@ body {
 .app-header-title { margin: 2px 0 0; font-size: 22px; color: var(--impi-dark); }
 
 .top-nav { display: flex; gap: 16px; align-items: center; margin-bottom: 16px; flex-wrap: wrap; }
-.top-nav a:not(.btn-primary) { color: var(--impi-red); text-decoration: none; font-weight: 600; }
+.top-nav a { color: var(--impi-red); text-decoration: none; font-weight: 600; }
 .top-nav a:hover { text-decoration: underline; }
 
 .btn-primary {
@@ -58,6 +58,17 @@ body {
   display: inline-block;
 }
 .btn-primary:hover { background: #b81314; }
+
+.btn-delete {
+  background: none;
+  border: 1px solid #999;
+  color: #555;
+  padding: 4px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+}
+.btn-delete:hover { background: var(--impi-red); color: white; border-color: var(--impi-red); }
 
 .tab {
   background: none;
