@@ -14,6 +14,7 @@ export default function PostingSheet() {
   const [officers, setOfficers] = useState([])
   const [loading, setLoading] = useState(true)
   const [signingSlotId, setSigningSlotId] = useState(null)
+  const [blankMode, setBlankMode] = useState(false)
 
   useEffect(() => {
     load()
@@ -112,11 +113,22 @@ export default function PostingSheet() {
         <button
           onClick={() => {
             navigator.clipboard.writeText(window.location.href)
-            alert('Link copied. Note: the recipient will need to sign in with an IMPI email to view this (Phase 2 adds a public read-only link).')
+            alert(
+              "Link copied. Note: whoever opens this needs to sign in with an IMPI email — there's no public link yet. " +
+              'For suppliers without an IMPI login, use "Blank for Supplier" below and print/save as PDF instead.'
+            )
           }}
         >
           Copy Share Link
         </button>
+        <label className="blank-toggle">
+          <input
+            type="checkbox"
+            checked={blankMode}
+            onChange={(e) => setBlankMode(e.target.checked)}
+          />
+          Blank for Supplier (hide names before printing/PDF)
+        </label>
       </div>
 
       <div className="event-meta">
@@ -190,10 +202,13 @@ export default function PostingSheet() {
                   <input
                     className="print-input"
                     value={
-                      slot.first_name || slot.last_name
+                      blankMode
+                        ? ''
+                        : slot.first_name || slot.last_name
                         ? `${slot.first_name || ''} ${slot.last_name || ''}`.trim()
                         : ''
                     }
+                    disabled={blankMode}
                     onChange={(e) => {
                       const [first_name, ...rest] = e.target.value.split(' ')
                       updateSlot(slot.id, {
@@ -208,21 +223,24 @@ export default function PostingSheet() {
                 <td>
                   <input
                     className="print-input"
-                    value={slot.id_number || ''}
+                    value={blankMode ? '' : slot.id_number || ''}
+                    disabled={blankMode}
                     onChange={(e) => updateSlot(slot.id, { id_number: e.target.value })}
                   />
                 </td>
                 <td>
                   <input
                     className="print-input"
-                    value={slot.psira_number || ''}
+                    value={blankMode ? '' : slot.psira_number || ''}
+                    disabled={blankMode}
                     onChange={(e) => updateSlot(slot.id, { psira_number: e.target.value })}
                   />
                 </td>
                 <td>
                   <input
                     className="print-input"
-                    value={slot.bib_serial || ''}
+                    value={blankMode ? '' : slot.bib_serial || ''}
+                    disabled={blankMode}
                     onChange={(e) => updateSlot(slot.id, { bib_serial: e.target.value })}
                   />
                 </td>
@@ -238,7 +256,8 @@ export default function PostingSheet() {
                 <td>
                   <select
                     className="print-input"
-                    value={slot.assigned_grade || ''}
+                    value={blankMode ? '' : slot.assigned_grade || ''}
+                    disabled={blankMode}
                     onChange={(e) => updateSlot(slot.id, { assigned_grade: e.target.value })}
                     title={`Post requires: ${view.grade}`}
                   >
