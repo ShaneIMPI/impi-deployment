@@ -21,7 +21,11 @@ export default function EventUpload() {
     try {
       const result = await parseQuotationFile(file)
       if (result.lineItems.length === 0) {
-        setError('No SECTION HEADER / LINE ITEM rows found in the Builder sheet.')
+        setError(
+          "No posting line items were found. This usually means the file isn't built from " +
+          'the IMPI Builder template. Please recreate this quote using the standard template ' +
+          '(download link below), then upload again.'
+        )
         return
       }
       setParsed(result)
@@ -134,6 +138,11 @@ export default function EventUpload() {
         posting sheet.
       </p>
       <input type="file" accept=".xlsx" onChange={handleFile} />
+      <p>
+        <a href={`${import.meta.env.BASE_URL}IMPI-Quotation-Template.xlsx`} download>
+          Download the blank IMPI Quotation Template (.xlsx)
+        </a>
+      </p>
 
       {error && <p className="error-text">{error}</p>}
 
