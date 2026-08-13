@@ -173,6 +173,32 @@ export default function PostingSheet() {
     updateSlot(slot.id, { status: 'checked_out', time_out: new Date().toISOString() })
   }
 
+  const [editingDetails, setEditingDetails] = useState(false)
+  const [detailsForm, setDetailsForm] = useState({
+    event_name: '',
+    venue: '',
+    event_date: '',
+    timing: '',
+  })
+
+  function startEditDetails() {
+    setDetailsForm({
+      event_name: event.event_name || '',
+      venue: event.venue || '',
+      event_date: event.event_date || '',
+      timing: event.timing || '',
+    })
+    setEditingDetails(true)
+  }
+
+  async function saveDetails() {
+    const { error } = await supabase.from('events').update(detailsForm).eq('id', eventId)
+    if (!error) {
+      setEvent((prev) => ({ ...prev, ...detailsForm }))
+      setEditingDetails(false)
+    }
+  }
+
   if (loading) return <div className="page">Loading…</div>
   if (!event) return <div className="page">Event not found.</div>
 
@@ -204,6 +230,9 @@ export default function PostingSheet() {
           />
           Blank for Supplier (hide names before printing/PDF)
         </label>
+        {!isViewer && !editingDetails && (
+          <button onClick={startEditDetails}>Edit Event Details</button>
+        )}
         {isViewer && <span className="viewer-badge">View-only access</span>}
         {!isOnline && (
           <span className="offline-badge">
@@ -215,23 +244,52 @@ export default function PostingSheet() {
         )}
       </div>
 
-      <div className="event-meta">
-        <div>
-          <strong>EVENT NAME:</strong> {event.event_name}
+      {editingDetails ? (
+        <div className="event-meta no-print inline-form">
+          <input
+            placeholder="Event Name"
+            value={detailsForm.event_name}
+            onChange={(e) => setDetailsForm({ ...detailsForm, event_name: e.target.value })}
+          />
+          <input
+            placeholder="Overview Date"
+            value={detailsForm.event_date}
+            onChange={(e) => setDetailsForm({ ...detailsForm, event_date: e.target.value })}
+          />
+          <input
+            placeholder="Venue"
+            value={detailsForm.venue}
+            onChange={(e) => setDetailsForm({ ...detailsForm, venue: e.target.value })}
+          />
+          <input
+            placeholder="Timing"
+            value={detailsForm.timing}
+            onChange={(e) => setDetailsForm({ ...detailsForm, timing: e.target.value })}
+          />
+          <button className="btn-primary" onClick={saveDetails}>
+            Save
+          </button>
+          <button onClick={() => setEditingDetails(false)}>Cancel</button>
         </div>
-        <div>
-          <strong>OVERVIEW DATE:</strong> {event.event_date}
+      ) : (
+        <div className="event-meta">
+          <div>
+            <strong>EVENT NAME:</strong> {event.event_name}
+          </div>
+          <div>
+            <strong>OVERVIEW DATE:</strong> {event.event_date}
+          </div>
+          <div>
+            <strong>VENUE:</strong> {event.venue}
+          </div>
+          <div>
+            <strong>TIMING:</strong> {event.timing}
+          </div>
+          <div>
+            <strong>SIGNED:</strong> {signedCount} of {totalPostings}
+          </div>
         </div>
-        <div>
-          <strong>VENUE:</strong> {event.venue}
-        </div>
-        <div>
-          <strong>TIMING:</strong> {event.timing}
-        </div>
-        <div>
-          <strong>SIGNED:</strong> {signedCount} of {totalPostings}
-        </div>
-      </div>
+      )}
 
       <table className="posting-table">
         <thead>
@@ -255,6 +313,7 @@ export default function PostingSheet() {
             if (!lineItem) return null
 
             if (lineItem.row_type === 'SECTION HEADER') {
+              postingCounter = 0
               return (
                 <tr key={slot.id} className="section-row">
                   <td colSpan={11}>{lineItem.section_text}</td>
