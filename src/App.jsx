@@ -8,8 +8,8 @@ import PayRun from './pages/PayRun'
 
 export default function App() {
   return (
-    <AuthGate>
-      <BrowserRouter basename={import.meta.env.BASE_URL}>
+    <BrowserRouter basename={import.meta.env.BASE_URL}>
+      <AuthGate>
         <Routes>
           <Route path="/" element={<Dashboard />} />
           <Route path="/new-event" element={<EventUpload />} />
@@ -17,7 +17,7 @@ export default function App() {
           <Route path="/events/:eventId/posting-sheet" element={<PostingSheet />} />
           <Route path="/events/:eventId/pay-run" element={<PayRun />} />
         </Routes>
-      </BrowserRouter>
-    </AuthGate>
+      </AuthGate>
+    </BrowserRouter>
   )
 }
