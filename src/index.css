@@ -163,6 +163,24 @@ input, select { padding: 6px; }
   font-size: 12px;
   font-weight: 600;
 }
+.offline-badge {
+  background: #fff3cd;
+  color: #7a5c00;
+  border: 1px solid #ffe08a;
+  border-radius: 4px;
+  padding: 3px 10px;
+  font-size: 12px;
+  font-weight: 600;
+}
+.syncing-badge {
+  background: #e0f0ff;
+  color: #1a5a8a;
+  border: 1px solid #b3d9ff;
+  border-radius: 4px;
+  padding: 3px 10px;
+  font-size: 12px;
+  font-weight: 600;
+}
 .posting-table input:disabled, .posting-table select:disabled {
   background: #f0f0f0;
   cursor: not-allowed;
