@@ -2,6 +2,14 @@ import { useEffect, useMemo, useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { supabase } from '../supabaseClient'
 import { deriveSlotView } from '../lib/postingLogic'
+import { getIsViewer } from '../lib/roles'
+import {
+  queueSlotUpdate,
+  getQueueCount,
+  flushQueue,
+  cachePostingSheet,
+  getCachedPostingSheet,
+} from '../lib/offlineSync'
 import Header from '../components/Header'
 import SignaturePad from '../components/SignaturePad'
 
@@ -15,34 +23,81 @@ export default function PostingSheet() {
   const [loading, setLoading] = useState(true)
   const [signingSlotId, setSigningSlotId] = useState(null)
   const [blankMode, setBlankMode] = useState(false)
+  const [isViewer, setIsViewer] = useState(false)
+  const [isOnline, setIsOnline] = useState(navigator.onLine)
+  const [pendingCount, setPendingCount] = useState(getQueueCount())
 
   useEffect(() => {
     load()
+    getIsViewer().then(setIsViewer)
   }, [eventId])
+
+  useEffect(() => {
+    async function sync() {
+      const remaining = await flushQueue()
+      setPendingCount(remaining)
+    }
+    function goOnline() {
+      setIsOnline(true)
+      sync()
+    }
+    function goOffline() {
+      setIsOnline(false)
+    }
+    window.addEventListener('online', goOnline)
+    window.addEventListener('offline', goOffline)
+    sync() // try syncing anything left over from a previous offline session
+    const interval = setInterval(sync, 8000)
+    return () => {
+      window.removeEventListener('online', goOnline)
+      window.removeEventListener('offline', goOffline)
+      clearInterval(interval)
+    }
+  }, [])
 
   async function load() {
     setLoading(true)
-    const [{ data: ev }, { data: li }, { data: sl }, { data: ty }, { data: off }] =
-      await Promise.all([
-        supabase.from('events').select('*').eq('id', eventId).single(),
-        supabase
-          .from('quote_line_items')
-          .select('*')
-          .eq('event_id', eventId)
-          .order('sort_order'),
-        supabase
-          .from('posting_slots')
-          .select('*')
-          .eq('event_id', eventId)
-          .order('sort_order'),
-        supabase.from('officer_types').select('*'),
-        supabase.from('officers').select('*').order('last_name'),
-      ])
-    setEvent(ev)
-    setLineItems(li || [])
-    setSlots(sl || [])
-    setTypes(ty || [])
-    setOfficers(off || [])
+    try {
+      const [{ data: ev }, { data: li }, { data: sl }, { data: ty }, { data: off }] =
+        await Promise.all([
+          supabase.from('events').select('*').eq('id', eventId).single(),
+          supabase
+            .from('quote_line_items')
+            .select('*')
+            .eq('event_id', eventId)
+            .order('sort_order'),
+          supabase
+            .from('posting_slots')
+            .select('*')
+            .eq('event_id', eventId)
+            .order('sort_order'),
+          supabase.from('officer_types').select('*'),
+          supabase.from('officers').select('*').order('last_name'),
+        ])
+      setEvent(ev)
+      setLineItems(li || [])
+      setSlots(sl || [])
+      setTypes(ty || [])
+      setOfficers(off || [])
+      cachePostingSheet(eventId, {
+        event: ev,
+        lineItems: li || [],
+        slots: sl || [],
+        types: ty || [],
+        officers: off || [],
+      })
+    } catch (err) {
+      // No signal — fall back to whatever was last cached for this event
+      const cached = getCachedPostingSheet(eventId)
+      if (cached) {
+        setEvent(cached.event)
+        setLineItems(cached.lineItems)
+        setSlots(cached.slots)
+        setTypes(cached.types)
+        setOfficers(cached.officers)
+      }
+      setIsOnline(false)
+    }
     setLoading(false)
   }
 
@@ -70,11 +125,29 @@ export default function PostingSheet() {
   }, [slots, lineItemsById])
 
   async function updateSlot(id, patch) {
+    if (isViewer) return
     setSlots((prev) => prev.map((s) => (s.id === id ? { ...s, ...patch } : s)))
-    await supabase.from('posting_slots').update(patch).eq('id', id)
+
+    if (!navigator.onLine) {
+      queueSlotUpdate(id, patch)
+      setPendingCount(getQueueCount())
+      return
+    }
+    try {
+      const { error } = await supabase.from('posting_slots').update(patch).eq('id', id)
+      if (error) throw error
+    } catch {
+      // Network call failed even though navigator.onLine said we're
+      // connected (e.g. wifi with no real internet) — queue it anyway
+      // rather than silently losing the change.
+      queueSlotUpdate(id, patch)
+      setPendingCount(getQueueCount())
+      setIsOnline(false)
+    }
   }
 
   function pickOfficer(slot, officerId) {
+    if (isViewer) return
     if (!officerId) {
       updateSlot(slot.id, { officer_id: null })
       return
@@ -92,9 +165,11 @@ export default function PostingSheet() {
   }
 
   async function checkIn(slot) {
+    if (isViewer) return
     updateSlot(slot.id, { status: 'checked_in', time_in: new Date().toISOString() })
   }
   async function checkOut(slot) {
+    if (isViewer) return
     updateSlot(slot.id, { status: 'checked_out', time_out: new Date().toISOString() })
   }
 
@@ -129,6 +204,15 @@ export default function PostingSheet() {
           />
           Blank for Supplier (hide names before printing/PDF)
         </label>
+        {isViewer && <span className="viewer-badge">View-only access</span>}
+        {!isOnline && (
+          <span className="offline-badge">
+            ⚠ Offline — changes are saving locally and will sync automatically
+          </span>
+        )}
+        {isOnline && pendingCount > 0 && (
+          <span className="syncing-badge">Syncing {pendingCount} change{pendingCount === 1 ? '' : 's'}…</span>
+        )}
       </div>
 
       <div className="event-meta">
@@ -191,6 +275,7 @@ export default function PostingSheet() {
                     value={slot.officer_id || ''}
                     onChange={(e) => pickOfficer(slot, e.target.value)}
                     className="no-print"
+                    disabled={isViewer}
                   >
                     <option value="">— type manually below —</option>
                     {officers.map((o) => (
@@ -208,7 +293,7 @@ export default function PostingSheet() {
                         ? `${slot.first_name || ''} ${slot.last_name || ''}`.trim()
                         : ''
                     }
-                    disabled={blankMode}
+                    disabled={blankMode || isViewer}
                     onChange={(e) => {
                       const [first_name, ...rest] = e.target.value.split(' ')
                       updateSlot(slot.id, {
@@ -224,7 +309,7 @@ export default function PostingSheet() {
                   <input
                     className="print-input"
                     value={blankMode ? '' : slot.id_number || ''}
-                    disabled={blankMode}
+                    disabled={blankMode || isViewer}
                     onChange={(e) => updateSlot(slot.id, { id_number: e.target.value })}
                   />
                 </td>
@@ -232,7 +317,7 @@ export default function PostingSheet() {
                   <input
                     className="print-input"
                     value={blankMode ? '' : slot.psira_number || ''}
-                    disabled={blankMode}
+                    disabled={blankMode || isViewer}
                     onChange={(e) => updateSlot(slot.id, { psira_number: e.target.value })}
                   />
                 </td>
@@ -240,7 +325,7 @@ export default function PostingSheet() {
                   <input
                     className="print-input"
                     value={blankMode ? '' : slot.bib_serial || ''}
-                    disabled={blankMode}
+                    disabled={blankMode || isViewer}
                     onChange={(e) => updateSlot(slot.id, { bib_serial: e.target.value })}
                   />
                 </td>
@@ -257,7 +342,7 @@ export default function PostingSheet() {
                   <select
                     className="print-input"
                     value={blankMode ? '' : slot.assigned_grade || ''}
-                    disabled={blankMode}
+                    disabled={blankMode || isViewer}
                     onChange={(e) => updateSlot(slot.id, { assigned_grade: e.target.value })}
                     title={`Post requires: ${view.grade}`}
                   >
@@ -274,6 +359,7 @@ export default function PostingSheet() {
                   <input
                     type="checkbox"
                     checked={!!slot.special_events}
+                    disabled={isViewer}
                     onChange={(e) =>
                       updateSlot(slot.id, { special_events: e.target.checked })
                     }
@@ -285,6 +371,8 @@ export default function PostingSheet() {
                       hour: '2-digit',
                       minute: '2-digit',
                     })
+                  ) : isViewer ? (
+                    '—'
                   ) : (
                     <button className="no-print" onClick={() => checkIn(slot)}>
                       Check In
@@ -297,6 +385,8 @@ export default function PostingSheet() {
                       hour: '2-digit',
                       minute: '2-digit',
                     })
+                  ) : isViewer ? (
+                    '—'
                   ) : (
                     <button className="no-print" onClick={() => checkOut(slot)}>
                       Check Out
@@ -309,8 +399,10 @@ export default function PostingSheet() {
                       src={slot.signature_data}
                       alt="Signed"
                       className="signature-thumb"
-                      onClick={() => setSigningSlotId(slot.id)}
+                      onClick={() => !isViewer && setSigningSlotId(slot.id)}
                     />
+                  ) : isViewer ? (
+                    '—'
                   ) : (
                     <button className="no-print" onClick={() => setSigningSlotId(slot.id)}>
                       Sign
