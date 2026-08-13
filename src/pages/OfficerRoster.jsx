@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../supabaseClient'
+import { getIsViewer } from '../lib/roles'
 import Header from '../components/Header'
 
 const emptyOfficer = {
@@ -17,10 +18,12 @@ export default function OfficerRoster() {
   const [types, setTypes] = useState([])
   const [form, setForm] = useState(emptyOfficer)
   const [tab, setTab] = useState('officers')
+  const [isViewer, setIsViewer] = useState(false)
 
   useEffect(() => {
     loadOfficers()
     loadTypes()
+    getIsViewer().then(setIsViewer)
   }, [])
 
   async function loadOfficers() {
@@ -84,45 +87,48 @@ export default function OfficerRoster() {
         >
           Rate Card (Officer Types)
         </button>
+        {isViewer && <span className="viewer-badge">View-only access</span>}
       </nav>
 
       {tab === 'officers' && (
         <>
-          <form onSubmit={addOfficer} className="inline-form">
-            <input
-              placeholder="First Name"
-              value={form.first_name}
-              onChange={(e) => setForm({ ...form, first_name: e.target.value })}
-            />
-            <input
-              placeholder="Last Name"
-              value={form.last_name}
-              onChange={(e) => setForm({ ...form, last_name: e.target.value })}
-            />
-            <input
-              placeholder="ID Number"
-              value={form.id_number}
-              onChange={(e) => setForm({ ...form, id_number: e.target.value })}
-            />
-            <input
-              placeholder="PSIRA Number"
-              value={form.psira_number}
-              onChange={(e) => setForm({ ...form, psira_number: e.target.value })}
-            />
-            <input
-              placeholder="PSIRA Grade (e.g. Gr C)"
-              value={form.psira_grade}
-              onChange={(e) => setForm({ ...form, psira_grade: e.target.value })}
-            />
-            <input
-              placeholder="BIB / Card Serial"
-              value={form.bib_serial}
-              onChange={(e) => setForm({ ...form, bib_serial: e.target.value })}
-            />
-            <button type="submit" className="btn-primary">
-              Add Officer
-            </button>
-          </form>
+          {!isViewer && (
+            <form onSubmit={addOfficer} className="inline-form">
+              <input
+                placeholder="First Name"
+                value={form.first_name}
+                onChange={(e) => setForm({ ...form, first_name: e.target.value })}
+              />
+              <input
+                placeholder="Last Name"
+                value={form.last_name}
+                onChange={(e) => setForm({ ...form, last_name: e.target.value })}
+              />
+              <input
+                placeholder="ID Number"
+                value={form.id_number}
+                onChange={(e) => setForm({ ...form, id_number: e.target.value })}
+              />
+              <input
+                placeholder="PSIRA Number"
+                value={form.psira_number}
+                onChange={(e) => setForm({ ...form, psira_number: e.target.value })}
+              />
+              <input
+                placeholder="PSIRA Grade (e.g. Gr C)"
+                value={form.psira_grade}
+                onChange={(e) => setForm({ ...form, psira_grade: e.target.value })}
+              />
+              <input
+                placeholder="BIB / Card Serial"
+                value={form.bib_serial}
+                onChange={(e) => setForm({ ...form, bib_serial: e.target.value })}
+              />
+              <button type="submit" className="btn-primary">
+                Add Officer
+              </button>
+            </form>
+          )}
 
           <table className="simple-table">
             <thead>
@@ -132,7 +138,7 @@ export default function OfficerRoster() {
                 <th>PSIRA No.</th>
                 <th>Grade</th>
                 <th>BIB Serial</th>
-                <th></th>
+                {!isViewer && <th></th>}
               </tr>
             </thead>
             <tbody>
@@ -145,9 +151,11 @@ export default function OfficerRoster() {
                   <td>{o.psira_number}</td>
                   <td>{o.psira_grade}</td>
                   <td>{o.bib_serial}</td>
-                  <td>
-                    <button onClick={() => removeOfficer(o.id)}>Remove</button>
-                  </td>
+                  {!isViewer && (
+                    <td>
+                      <button onClick={() => removeOfficer(o.id)}>Remove</button>
+                    </td>
+                  )}
                 </tr>
               ))}
             </tbody>
@@ -168,7 +176,7 @@ export default function OfficerRoster() {
                 <th>PSIRA Grade</th>
                 <th>Sell Price (per shift)</th>
                 <th>Pay Rate (per shift)</th>
-                <th></th>
+                {!isViewer && <th></th>}
               </tr>
             </thead>
             <tbody>
@@ -178,6 +186,7 @@ export default function OfficerRoster() {
                   <td>
                     <input
                       value={t.psira_grade || ''}
+                      disabled={isViewer}
                       onChange={(e) => updateType(t.id, 'psira_grade', e.target.value)}
                     />
                   </td>
@@ -185,6 +194,7 @@ export default function OfficerRoster() {
                     <input
                       type="number"
                       value={t.sell_price}
+                      disabled={isViewer}
                       onChange={(e) => updateType(t.id, 'sell_price', e.target.value)}
                     />
                   </td>
@@ -192,12 +202,15 @@ export default function OfficerRoster() {
                     <input
                       type="number"
                       value={t.pay_rate}
+                      disabled={isViewer}
                       onChange={(e) => updateType(t.id, 'pay_rate', e.target.value)}
                     />
                   </td>
-                  <td>
-                    <button onClick={() => saveType(t)}>Save</button>
-                  </td>
+                  {!isViewer && (
+                    <td>
+                      <button onClick={() => saveType(t)}>Save</button>
+                    </td>
+                  )}
                 </tr>
               ))}
             </tbody>
