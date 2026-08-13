@@ -138,6 +138,7 @@ export default function PayRun() {
             if (!lineItem) return null
 
             if (lineItem.row_type === 'SECTION HEADER') {
+              counter = 0
               return (
                 <tr key={slot.id} className="section-row">
                   <td colSpan={10}>{lineItem.section_text}</td>
