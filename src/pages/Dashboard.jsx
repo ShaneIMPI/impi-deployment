@@ -1,14 +1,17 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase } from '../supabaseClient'
+import { getIsViewer } from '../lib/roles'
 import Header from '../components/Header'
 
 export default function Dashboard() {
   const [events, setEvents] = useState([])
   const [loading, setLoading] = useState(true)
+  const [isViewer, setIsViewer] = useState(false)
 
   useEffect(() => {
     load()
+    getIsViewer().then(setIsViewer)
   }, [])
 
   async function load() {
@@ -34,10 +37,13 @@ export default function Dashboard() {
     <div className="page">
       <Header title="Events" />
       <nav className="top-nav">
-        <Link to="/new-event" className="btn-primary">
-          + New Event (Upload Quotation)
-        </Link>
+        {!isViewer && (
+          <Link to="/new-event" className="btn-primary">
+            + New Event (Upload Quotation)
+          </Link>
+        )}
         <Link to="/officers">Officer Roster</Link>
+        {isViewer && <span className="viewer-badge">View-only access</span>}
       </nav>
 
       {loading ? (
@@ -53,7 +59,7 @@ export default function Dashboard() {
               <th>Date</th>
               <th>Status</th>
               <th></th>
-              <th></th>
+              {!isViewer && <th></th>}
             </tr>
           </thead>
           <tbody>
@@ -67,11 +73,13 @@ export default function Dashboard() {
                   <Link to={`/events/${ev.id}/posting-sheet`}>Posting Sheet</Link>
                   <Link to={`/events/${ev.id}/pay-run`}>Pay Run</Link>
                 </td>
-                <td>
-                  <button className="btn-delete" onClick={() => deleteEvent(ev)}>
-                    Delete
-                  </button>
-                </td>
+                {!isViewer && (
+                  <td>
+                    <button className="btn-delete" onClick={() => deleteEvent(ev)}>
+                      Delete
+                    </button>
+                  </td>
+                )}
               </tr>
             ))}
           </tbody>
