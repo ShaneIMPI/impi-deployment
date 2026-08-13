@@ -154,6 +154,15 @@ input, select { padding: 6px; }
   color: #555;
   cursor: pointer;
 }
+.viewer-badge {
+  background: #eee;
+  color: #555;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  padding: 3px 10px;
+  font-size: 12px;
+  font-weight: 600;
+}
 .posting-table input:disabled, .posting-table select:disabled {
   background: #f0f0f0;
   cursor: not-allowed;
