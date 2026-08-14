@@ -255,8 +255,35 @@ input, select { padding: 6px; }
   .posting-table th { background: var(--impi-red) !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   .posting-table thead { display: table-header-group; }
   .force-page-break { break-before: page; page-break-before: always; }
+  .posting-table tr { break-inside: avoid; page-break-inside: avoid; }
+  .section-row { break-after: avoid; page-break-after: avoid; }
   .section-row td { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   .posting-table input::placeholder { color: transparent; }
-  .posting-table td { padding: 10px 8px; }
-  @page { size: landscape; margin: 10mm; }
+  .posting-table td { padding: 6px 5px; font-size: 10px; }
+  .posting-table th { font-size: 10px; }
+  @page { size: landscape; margin: 8mm; }
+
+  /* Force the table to fit exactly within the printable page width so no
+     column gets pushed off the page and clipped. Overrides the on-screen
+     min-widths (which are sized for touch/typing, not print). */
+  .posting-table {
+    table-layout: fixed;
+    width: 100%;
+  }
+  .posting-table th, .posting-table td {
+    min-width: 0 !important;
+    overflow-wrap: break-word;
+    white-space: normal;
+  }
+  .posting-table th:nth-child(1), .posting-table td:nth-child(1) { width: 3%; }
+  .posting-table th:nth-child(2), .posting-table td:nth-child(2) { width: 13%; }
+  .posting-table th:nth-child(3), .posting-table td:nth-child(3) { width: 10%; }
+  .posting-table th:nth-child(4), .posting-table td:nth-child(4) { width: 9%; }
+  .posting-table th:nth-child(5), .posting-table td:nth-child(5) { width: 7%; }
+  .posting-table th:nth-child(6), .posting-table td:nth-child(6) { width: 25%; }
+  .posting-table th:nth-child(7), .posting-table td:nth-child(7) { width: 8%; }
+  .posting-table th:nth-child(8), .posting-table td:nth-child(8) { width: 6%; }
+  .posting-table th:nth-child(9), .posting-table td:nth-child(9) { width: 6%; }
+  .posting-table th:nth-child(10), .posting-table td:nth-child(10) { width: 6%; }
+  .posting-table th:nth-child(11), .posting-table td:nth-child(11) { width: 7%; }
 }
