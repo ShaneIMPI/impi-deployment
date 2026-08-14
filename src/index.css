@@ -111,6 +111,22 @@ body {
   font-weight: 700;
   color: var(--impi-dark);
 }
+.section-header-inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.section-break-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--impi-dark);
+  cursor: pointer;
+  text-transform: none;
+}
 
 .posting-table input, .posting-table select {
   width: 100%;
@@ -237,6 +253,8 @@ input, select { padding: 6px; }
   body { background: white; }
   .page { max-width: 100%; padding: 0; }
   .posting-table th { background: var(--impi-red) !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .posting-table thead { display: table-header-group; }
+  .force-page-break { break-before: page; page-break-before: always; }
   .section-row td { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   .posting-table input::placeholder { color: transparent; }
   .posting-table td { padding: 10px 8px; }
