@@ -382,9 +382,9 @@ export default function PostingSheet() {
                     value={
                       blankMode
                         ? ''
-                        : slot.first_name || slot.last_name
-                        ? `${slot.first_name || ''} ${slot.last_name || ''}`.trim()
-                        : ''
+                        : !slot.first_name && !slot.last_name
+                        ? ''
+                        : `${slot.first_name || ''} ${slot.last_name || ''}`
                     }
                     disabled={blankMode || isViewer}
                     onChange={(e) => {
@@ -431,12 +431,12 @@ export default function PostingSheet() {
                     </span>
                   )}
                 </td>
-                <td>
+                <td className="no-print-input">
                   <select
-                    className="print-input"
-                    value={blankMode ? '' : slot.assigned_grade || ''}
-                    disabled={blankMode || isViewer}
+                    value={slot.assigned_grade || ''}
+                    disabled={isViewer}
                     onChange={(e) => updateSlot(slot.id, { assigned_grade: e.target.value })}
+                    className="no-print"
                     title={`Post requires: ${view.grade}`}
                   >
                     <option value="">— Select (Req: {view.grade}) —</option>
@@ -447,6 +447,12 @@ export default function PostingSheet() {
                     <option value="Gr D">Gr D</option>
                     <option value="Gr E">Gr E</option>
                   </select>
+                  <input
+                    className="print-input"
+                    value={blankMode ? '' : slot.assigned_grade || ''}
+                    disabled
+                    readOnly
+                />
                 </td>
                 <td className="checkbox-cell">
                   <input
