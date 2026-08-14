@@ -199,10 +199,20 @@ export default function PostingSheet() {
     }
   }
 
+  async function toggleSectionBreak(lineItemId, currentValue) {
+    if (isViewer) return
+    const next = !currentValue
+    setLineItems((prev) =>
+      prev.map((li) => (li.id === lineItemId ? { ...li, page_break_before: next } : li))
+    )
+    await supabase.from('quote_line_items').update({ page_break_before: next }).eq('id', lineItemId)
+  }
+
   if (loading) return <div className="page">Loading…</div>
   if (!event) return <div className="page">Event not found.</div>
 
   let postingCounter = 0
+  let sectionIndex = 0
 
   return (
     <div className="page posting-sheet">
@@ -314,9 +324,33 @@ export default function PostingSheet() {
 
             if (lineItem.row_type === 'SECTION HEADER') {
               postingCounter = 0
+              const isFirstSection = sectionIndex === 0
+              const wantsBreak = lineItem.page_break_before !== false
+              sectionIndex += 1
               return (
-                <tr key={slot.id} className="section-row">
-                  <td colSpan={11}>{lineItem.section_text}</td>
+                <tr
+                  key={slot.id}
+                  className={
+                    !isFirstSection && wantsBreak ? 'section-row force-page-break' : 'section-row'
+                  }
+                >
+                  <td colSpan={11}>
+                    <div className="section-header-inner">
+                      <span>{lineItem.section_text}</span>
+                      {!isViewer && !isFirstSection && (
+                        <label className="no-print section-break-toggle">
+                          <input
+                            type="checkbox"
+                            checked={wantsBreak}
+                            onChange={() =>
+                              toggleSectionBreak(lineItem.id, lineItem.page_break_before !== false)
+                            }
+                          />
+                          Start new page here
+                        </label>
+                      )}
+                    </div>
+                  </td>
                 </tr>
               )
             }
