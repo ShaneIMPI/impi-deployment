@@ -73,7 +73,7 @@ export default function PostingSheet() {
             .eq('event_id', eventId)
             .order('sort_order'),
           supabase.from('officer_types').select('*'),
-          supabase.from('officers').select('*').order('last_name'),
+          supabase.from('officers').select('*').order('full_name'),
         ])
       setEvent(ev)
       setLineItems(li || [])
@@ -154,13 +154,15 @@ export default function PostingSheet() {
       return
     }
     const o = officers.find((x) => x.id === officerId)
+    const nameParts = (o.full_name || '').trim().split(/\s+/)
+    const first_name = nameParts.shift() || ''
+    const last_name = nameParts.join(' ')
     updateSlot(slot.id, {
       officer_id: o.id,
-      first_name: o.first_name,
-      last_name: o.last_name,
+      first_name,
+      last_name,
       id_number: o.id_number,
       psira_number: o.psira_number,
-      assigned_grade: o.psira_grade || '',
       special_events: !!o.special_events,
     })
   }
@@ -383,7 +385,7 @@ export default function PostingSheet() {
                     <option value="">— type manually below —</option>
                     {officers.map((o) => (
                       <option key={o.id} value={o.id}>
-                        {o.first_name} {o.last_name}
+                        {o.full_name}
                       </option>
                     ))}
                   </select>
