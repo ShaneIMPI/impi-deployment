@@ -5,12 +5,14 @@ import Header from '../components/Header'
 import ImportOfficersModal from '../components/ImportOfficersModal'
 
 const emptyOfficer = {
-  first_name: '',
-  last_name: '',
+  full_name: '',
   id_number: '',
   psira_number: '',
-  psira_grade: '',
+  competency_number: '',
+  competency_expiry: '',
+  phone_number: '',
   special_events: false,
+  active: true,
 }
 
 export default function OfficerRoster() {
@@ -33,7 +35,7 @@ export default function OfficerRoster() {
     const { data } = await supabase
       .from('officers')
       .select('*')
-      .order('last_name', { ascending: true })
+      .order('full_name', { ascending: true })
     setOfficers(data || [])
   }
 
@@ -48,12 +50,14 @@ export default function OfficerRoster() {
   function startEdit(o) {
     setEditingId(o.id)
     setForm({
-      first_name: o.first_name || '',
-      last_name: o.last_name || '',
+      full_name: o.full_name || '',
       id_number: o.id_number || '',
       psira_number: o.psira_number || '',
-      psira_grade: o.psira_grade || '',
+      competency_number: o.competency_number || '',
+      competency_expiry: o.competency_expiry || '',
+      phone_number: o.phone_number || '',
       special_events: !!o.special_events,
+      active: o.active !== false,
     })
   }
 
@@ -64,11 +68,12 @@ export default function OfficerRoster() {
 
   async function saveOfficer(e) {
     e.preventDefault()
-    if (!form.first_name || !form.last_name) return
+    if (!form.full_name) return
     setSaveError('')
+    const payload = { ...form, competency_expiry: form.competency_expiry || null }
     const { error } = editingId
-      ? await supabase.from('officers').update(form).eq('id', editingId)
-      : await supabase.from('officers').insert(form)
+      ? await supabase.from('officers').update(payload).eq('id', editingId)
+      : await supabase.from('officers').insert(payload)
     if (error) {
       setSaveError(error.message)
       return
@@ -135,14 +140,9 @@ export default function OfficerRoster() {
           {!isViewer && (
             <form onSubmit={saveOfficer} className="inline-form">
               <input
-                placeholder="First Name"
-                value={form.first_name}
-                onChange={(e) => setForm({ ...form, first_name: e.target.value })}
-              />
-              <input
-                placeholder="Last Name"
-                value={form.last_name}
-                onChange={(e) => setForm({ ...form, last_name: e.target.value })}
+                placeholder="Full Name"
+                value={form.full_name}
+                onChange={(e) => setForm({ ...form, full_name: e.target.value })}
               />
               <input
                 placeholder="ID Number"
@@ -155,9 +155,20 @@ export default function OfficerRoster() {
                 onChange={(e) => setForm({ ...form, psira_number: e.target.value })}
               />
               <input
-                placeholder="PSIRA Grade (e.g. Gr C)"
-                value={form.psira_grade}
-                onChange={(e) => setForm({ ...form, psira_grade: e.target.value })}
+                placeholder="Competency Number"
+                value={form.competency_number}
+                onChange={(e) => setForm({ ...form, competency_number: e.target.value })}
+              />
+              <input
+                type="date"
+                title="Competency Expiry"
+                value={form.competency_expiry}
+                onChange={(e) => setForm({ ...form, competency_expiry: e.target.value })}
+              />
+              <input
+                placeholder="Phone Number"
+                value={form.phone_number}
+                onChange={(e) => setForm({ ...form, phone_number: e.target.value })}
               />
               <label className="section-break-toggle">
                 <input
@@ -166,6 +177,14 @@ export default function OfficerRoster() {
                   onChange={(e) => setForm({ ...form, special_events: e.target.checked })}
                 />
                 Special Events
+              </label>
+              <label className="section-break-toggle">
+                <input
+                  type="checkbox"
+                  checked={form.active}
+                  onChange={(e) => setForm({ ...form, active: e.target.checked })}
+                />
+                Active
               </label>
               <button type="submit" className="btn-primary">
                 {editingId ? 'Save Changes' : 'Add Officer'}
@@ -184,21 +203,25 @@ export default function OfficerRoster() {
                 <th>Name</th>
                 <th>ID Number</th>
                 <th>PSIRA No.</th>
-                <th>Grade</th>
+                <th>Competency No.</th>
+                <th>Expiry</th>
+                <th>Phone</th>
                 <th>Special Events</th>
+                <th>Active</th>
                 {!isViewer && <th></th>}
               </tr>
             </thead>
             <tbody>
               {officers.map((o) => (
                 <tr key={o.id} className={editingId === o.id ? 'warning-cell' : ''}>
-                  <td>
-                    {o.first_name} {o.last_name}
-                  </td>
+                  <td>{o.full_name}</td>
                   <td>{o.id_number}</td>
                   <td>{o.psira_number}</td>
-                  <td>{o.psira_grade}</td>
+                  <td>{o.competency_number}</td>
+                  <td>{o.competency_expiry}</td>
+                  <td>{o.phone_number}</td>
                   <td>{o.special_events ? 'Yes' : 'No'}</td>
+                  <td>{o.active === false ? 'No' : 'Yes'}</td>
                   {!isViewer && (
                     <td className="row-actions">
                       <a onClick={() => startEdit(o)} style={{ cursor: 'pointer' }}>
