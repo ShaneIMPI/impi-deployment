@@ -11,7 +11,6 @@ const emptyOfficer = {
   psira_number: '',
   psira_grade: '',
   special_events: false,
-  phone: '',
 }
 
 export default function OfficerRoster() {
@@ -22,6 +21,7 @@ export default function OfficerRoster() {
   const [tab, setTab] = useState('officers')
   const [isViewer, setIsViewer] = useState(false)
   const [showImport, setShowImport] = useState(false)
+  const [saveError, setSaveError] = useState('')
 
   useEffect(() => {
     loadOfficers()
@@ -54,7 +54,6 @@ export default function OfficerRoster() {
       psira_number: o.psira_number || '',
       psira_grade: o.psira_grade || '',
       special_events: !!o.special_events,
-      phone: o.phone || '',
     })
   }
 
@@ -66,10 +65,13 @@ export default function OfficerRoster() {
   async function saveOfficer(e) {
     e.preventDefault()
     if (!form.first_name || !form.last_name) return
-    if (editingId) {
-      await supabase.from('officers').update(form).eq('id', editingId)
-    } else {
-      await supabase.from('officers').insert(form)
+    setSaveError('')
+    const { error } = editingId
+      ? await supabase.from('officers').update(form).eq('id', editingId)
+      : await supabase.from('officers').insert(form)
+    if (error) {
+      setSaveError(error.message)
+      return
     }
     setForm(emptyOfficer)
     setEditingId(null)
@@ -78,7 +80,12 @@ export default function OfficerRoster() {
 
   async function removeOfficer(id) {
     if (!confirm('Remove this officer from the roster?')) return
-    await supabase.from('officers').delete().eq('id', id)
+    setSaveError('')
+    const { error } = await supabase.from('officers').delete().eq('id', id)
+    if (error) {
+      setSaveError(error.message)
+      return
+    }
     if (editingId === id) cancelEdit()
     loadOfficers()
   }
@@ -119,6 +126,7 @@ export default function OfficerRoster() {
 
       {tab === 'officers' && (
         <>
+          {saveError && <p className="error-text">Save failed: {saveError}</p>}
           {!isViewer && (
             <div className="event-meta no-print" style={{ marginBottom: 8 }}>
               <button onClick={() => setShowImport(true)}>Import from Excel</button>
