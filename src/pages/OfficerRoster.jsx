@@ -70,6 +70,7 @@ export default function OfficerRoster() {
     e.preventDefault()
     if (!form.full_name) return
     setSaveError('')
+    // Empty string on a date column errors — send null instead.
     const payload = { ...form, competency_expiry: form.competency_expiry || null }
     const { error } = editingId
       ? await supabase.from('officers').update(payload).eq('id', editingId)
@@ -159,12 +160,14 @@ export default function OfficerRoster() {
                 value={form.competency_number}
                 onChange={(e) => setForm({ ...form, competency_number: e.target.value })}
               />
-              <input
-                type="date"
-                title="Competency Expiry"
-                value={form.competency_expiry}
-                onChange={(e) => setForm({ ...form, competency_expiry: e.target.value })}
-              />
+              <label className="section-break-toggle">
+                Competency Expiry
+                <input
+                  type="date"
+                  value={form.competency_expiry}
+                  onChange={(e) => setForm({ ...form, competency_expiry: e.target.value })}
+                />
+              </label>
               <input
                 placeholder="Phone Number"
                 value={form.phone_number}
@@ -204,7 +207,7 @@ export default function OfficerRoster() {
                 <th>ID Number</th>
                 <th>PSIRA No.</th>
                 <th>Competency No.</th>
-                <th>Expiry</th>
+                <th>Comp. Expiry</th>
                 <th>Phone</th>
                 <th>Special Events</th>
                 <th>Active</th>
@@ -221,7 +224,7 @@ export default function OfficerRoster() {
                   <td>{o.competency_expiry}</td>
                   <td>{o.phone_number}</td>
                   <td>{o.special_events ? 'Yes' : 'No'}</td>
-                  <td>{o.active === false ? 'No' : 'Yes'}</td>
+                  <td>{o.active !== false ? 'Yes' : 'No'}</td>
                   {!isViewer && (
                     <td className="row-actions">
                       <a onClick={() => startEdit(o)} style={{ cursor: 'pointer' }}>
