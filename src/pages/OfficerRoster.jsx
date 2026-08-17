@@ -8,8 +8,6 @@ const emptyOfficer = {
   full_name: '',
   id_number: '',
   psira_number: '',
-  competency_number: '',
-  competency_expiry: '',
   phone_number: '',
   special_events: false,
   active: true,
@@ -53,8 +51,6 @@ export default function OfficerRoster() {
       full_name: o.full_name || '',
       id_number: o.id_number || '',
       psira_number: o.psira_number || '',
-      competency_number: o.competency_number || '',
-      competency_expiry: o.competency_expiry || '',
       phone_number: o.phone_number || '',
       special_events: !!o.special_events,
       active: o.active !== false,
@@ -70,11 +66,9 @@ export default function OfficerRoster() {
     e.preventDefault()
     if (!form.full_name) return
     setSaveError('')
-    // Empty string on a date column errors — send null instead.
-    const payload = { ...form, competency_expiry: form.competency_expiry || null }
     const { error } = editingId
-      ? await supabase.from('officers').update(payload).eq('id', editingId)
-      : await supabase.from('officers').insert(payload)
+      ? await supabase.from('officers').update(form).eq('id', editingId)
+      : await supabase.from('officers').insert(form)
     if (error) {
       setSaveError(error.message)
       return
@@ -156,19 +150,6 @@ export default function OfficerRoster() {
                 onChange={(e) => setForm({ ...form, psira_number: e.target.value })}
               />
               <input
-                placeholder="Competency Number"
-                value={form.competency_number}
-                onChange={(e) => setForm({ ...form, competency_number: e.target.value })}
-              />
-              <label className="section-break-toggle">
-                Competency Expiry
-                <input
-                  type="date"
-                  value={form.competency_expiry}
-                  onChange={(e) => setForm({ ...form, competency_expiry: e.target.value })}
-                />
-              </label>
-              <input
                 placeholder="Phone Number"
                 value={form.phone_number}
                 onChange={(e) => setForm({ ...form, phone_number: e.target.value })}
@@ -206,8 +187,6 @@ export default function OfficerRoster() {
                 <th>Name</th>
                 <th>ID Number</th>
                 <th>PSIRA No.</th>
-                <th>Competency No.</th>
-                <th>Comp. Expiry</th>
                 <th>Phone</th>
                 <th>Special Events</th>
                 <th>Active</th>
@@ -220,8 +199,6 @@ export default function OfficerRoster() {
                   <td>{o.full_name}</td>
                   <td>{o.id_number}</td>
                   <td>{o.psira_number}</td>
-                  <td>{o.competency_number}</td>
-                  <td>{o.competency_expiry}</td>
                   <td>{o.phone_number}</td>
                   <td>{o.special_events ? 'Yes' : 'No'}</td>
                   <td>{o.active !== false ? 'Yes' : 'No'}</td>
