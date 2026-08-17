@@ -4,8 +4,6 @@ import { supabase } from '../supabaseClient'
 
 const TARGET_FIELDS = [
   { key: 'full_name', label: 'Full Name' },
-  { key: 'first_name', label: '— OR — First Name (combined with Last below)' },
-  { key: 'last_name', label: '— OR — Last Name / Surname' },
   { key: 'id_number', label: 'ID Number' },
   { key: 'psira_number', label: 'PSIRA Number' },
   { key: 'competency_number', label: 'Competency Number' },
@@ -13,12 +11,10 @@ const TARGET_FIELDS = [
 ]
 
 const GUESS_PATTERNS = {
-  full_name: /^(name|full ?name)$/i,
-  first_name: /first/i,
-  last_name: /last|surname/i,
+  full_name: /name|surname/i,
   id_number: /id.*(no|number)|identity|^id$/i,
   psira_number: /psira.*(no|number)/i,
-  competency_number: /competen/i,
+  competency_number: /competency/i,
   phone_number: /phone|cell|mobile|contact/i,
 }
 
@@ -27,14 +23,6 @@ function guessMapping(headers) {
   for (const field of Object.keys(GUESS_PATTERNS)) {
     const match = headers.find((h) => GUESS_PATTERNS[field].test(h.trim()))
     if (match) mapping[field] = match
-  }
-  // Don't guess both full_name and first_name/last_name at once — prefer
-  // separate columns if they exist, otherwise fall back to full_name.
-  if (mapping.first_name && mapping.last_name) {
-    delete mapping.full_name
-  } else {
-    delete mapping.first_name
-    delete mapping.last_name
   }
   return mapping
 }
@@ -74,16 +62,8 @@ export default function ImportOfficersModal({ existingOfficers, onClose, onImpor
   }
 
   function buildOfficer(row) {
-    let full_name = ''
-    if (mapping.first_name || mapping.last_name) {
-      const first = String(row[mapping.first_name] || '').trim()
-      const last = String(row[mapping.last_name] || '').trim()
-      full_name = `${first} ${last}`.trim()
-    } else if (mapping.full_name) {
-      full_name = String(row[mapping.full_name] || '').trim()
-    }
     return {
-      full_name,
+      full_name: mapping.full_name ? String(row[mapping.full_name] || '').trim() : '',
       id_number: mapping.id_number ? String(row[mapping.id_number] || '').trim() : '',
       psira_number: mapping.psira_number ? String(row[mapping.psira_number] || '').trim() : '',
       competency_number: mapping.competency_number
@@ -172,8 +152,7 @@ export default function ImportOfficersModal({ existingOfficers, onClose, onImpor
             <p>
               Found <strong>{rows.length}</strong> rows. Match each field
               below to the correct column from your file, then check the
-              preview. Use either Full Name, or First Name + Last Name —
-              not both.
+              preview.
             </p>
             <div className="import-mapping-grid">
               {TARGET_FIELDS.map((f) => (
@@ -206,7 +185,6 @@ export default function ImportOfficersModal({ existingOfficers, onClose, onImpor
                   <th>ID Number</th>
                   <th>PSIRA No.</th>
                   <th>Competency No.</th>
-                  <th>Phone</th>
                 </tr>
               </thead>
               <tbody>
@@ -218,7 +196,6 @@ export default function ImportOfficersModal({ existingOfficers, onClose, onImpor
                       <td>{o.id_number}</td>
                       <td>{o.psira_number}</td>
                       <td>{o.competency_number}</td>
-                      <td>{o.phone_number}</td>
                     </tr>
                   )
                 })}
