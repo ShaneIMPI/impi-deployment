@@ -6,7 +6,6 @@ const TARGET_FIELDS = [
   { key: 'full_name', label: 'Full Name' },
   { key: 'id_number', label: 'ID Number' },
   { key: 'psira_number', label: 'PSIRA Number' },
-  { key: 'competency_number', label: 'Competency Number' },
   { key: 'phone_number', label: 'Phone Number' },
 ]
 
@@ -14,7 +13,6 @@ const GUESS_PATTERNS = {
   full_name: /name|surname/i,
   id_number: /id.*(no|number)|identity|^id$/i,
   psira_number: /psira.*(no|number)/i,
-  competency_number: /competency/i,
   phone_number: /phone|cell|mobile|contact/i,
 }
 
@@ -66,9 +64,6 @@ export default function ImportOfficersModal({ existingOfficers, onClose, onImpor
       full_name: mapping.full_name ? String(row[mapping.full_name] || '').trim() : '',
       id_number: mapping.id_number ? String(row[mapping.id_number] || '').trim() : '',
       psira_number: mapping.psira_number ? String(row[mapping.psira_number] || '').trim() : '',
-      competency_number: mapping.competency_number
-        ? String(row[mapping.competency_number] || '').trim()
-        : '',
       phone_number: mapping.phone_number ? String(row[mapping.phone_number] || '').trim() : '',
       special_events: false,
       active: true,
@@ -184,7 +179,6 @@ export default function ImportOfficersModal({ existingOfficers, onClose, onImpor
                   <th>Name</th>
                   <th>ID Number</th>
                   <th>PSIRA No.</th>
-                  <th>Competency No.</th>
                 </tr>
               </thead>
               <tbody>
@@ -195,7 +189,6 @@ export default function ImportOfficersModal({ existingOfficers, onClose, onImpor
                       <td>{o.full_name}</td>
                       <td>{o.id_number}</td>
                       <td>{o.psira_number}</td>
-                      <td>{o.competency_number}</td>
                     </tr>
                   )
                 })}
