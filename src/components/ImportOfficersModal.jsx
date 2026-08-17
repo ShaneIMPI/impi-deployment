@@ -3,12 +3,13 @@ import * as XLSX from 'xlsx'
 import { supabase } from '../supabaseClient'
 
 const TARGET_FIELDS = [
-  { key: 'full_name', label: 'Full Name (if First & Last are one column)' },
-  { key: 'first_name', label: 'First Name' },
-  { key: 'last_name', label: 'Last Name / Surname' },
+  { key: 'full_name', label: 'Full Name' },
+  { key: 'first_name', label: '— OR — First Name (combined with Last below)' },
+  { key: 'last_name', label: '— OR — Last Name / Surname' },
   { key: 'id_number', label: 'ID Number' },
   { key: 'psira_number', label: 'PSIRA Number' },
-  { key: 'psira_grade', label: 'PSIRA Grade' },
+  { key: 'competency_number', label: 'Competency Number' },
+  { key: 'phone_number', label: 'Phone Number' },
 ]
 
 const GUESS_PATTERNS = {
@@ -17,7 +18,8 @@ const GUESS_PATTERNS = {
   last_name: /last|surname/i,
   id_number: /id.*(no|number)|identity|^id$/i,
   psira_number: /psira.*(no|number)/i,
-  psira_grade: /grade/i,
+  competency_number: /competen/i,
+  phone_number: /phone|cell|mobile|contact/i,
 }
 
 function guessMapping(headers) {
@@ -72,23 +74,24 @@ export default function ImportOfficersModal({ existingOfficers, onClose, onImpor
   }
 
   function buildOfficer(row) {
-    let first_name = ''
-    let last_name = ''
+    let full_name = ''
     if (mapping.first_name || mapping.last_name) {
-      first_name = String(row[mapping.first_name] || '').trim()
-      last_name = String(row[mapping.last_name] || '').trim()
+      const first = String(row[mapping.first_name] || '').trim()
+      const last = String(row[mapping.last_name] || '').trim()
+      full_name = `${first} ${last}`.trim()
     } else if (mapping.full_name) {
-      const parts = String(row[mapping.full_name] || '').trim().split(/\s+/)
-      first_name = parts.shift() || ''
-      last_name = parts.join(' ')
+      full_name = String(row[mapping.full_name] || '').trim()
     }
     return {
-      first_name,
-      last_name,
+      full_name,
       id_number: mapping.id_number ? String(row[mapping.id_number] || '').trim() : '',
       psira_number: mapping.psira_number ? String(row[mapping.psira_number] || '').trim() : '',
-      psira_grade: mapping.psira_grade ? String(row[mapping.psira_grade] || '').trim() : '',
+      competency_number: mapping.competency_number
+        ? String(row[mapping.competency_number] || '').trim()
+        : '',
+      phone_number: mapping.phone_number ? String(row[mapping.phone_number] || '').trim() : '',
       special_events: false,
+      active: true,
     }
   }
 
@@ -104,7 +107,7 @@ export default function ImportOfficersModal({ existingOfficers, onClose, onImpor
 
     for (const row of rows) {
       const officer = buildOfficer(row)
-      if (!officer.first_name && !officer.last_name) {
+      if (!officer.full_name) {
         skippedNoName += 1
         continue
       }
@@ -169,7 +172,8 @@ export default function ImportOfficersModal({ existingOfficers, onClose, onImpor
             <p>
               Found <strong>{rows.length}</strong> rows. Match each field
               below to the correct column from your file, then check the
-              preview.
+              preview. Use either Full Name, or First Name + Last Name —
+              not both.
             </p>
             <div className="import-mapping-grid">
               {TARGET_FIELDS.map((f) => (
@@ -201,7 +205,8 @@ export default function ImportOfficersModal({ existingOfficers, onClose, onImpor
                   <th>Name</th>
                   <th>ID Number</th>
                   <th>PSIRA No.</th>
-                  <th>Grade</th>
+                  <th>Competency No.</th>
+                  <th>Phone</th>
                 </tr>
               </thead>
               <tbody>
@@ -209,12 +214,11 @@ export default function ImportOfficersModal({ existingOfficers, onClose, onImpor
                   const o = buildOfficer(row)
                   return (
                     <tr key={i}>
-                      <td>
-                        {o.first_name} {o.last_name}
-                      </td>
+                      <td>{o.full_name}</td>
                       <td>{o.id_number}</td>
                       <td>{o.psira_number}</td>
-                      <td>{o.psira_grade}</td>
+                      <td>{o.competency_number}</td>
+                      <td>{o.phone_number}</td>
                     </tr>
                   )
                 })}
