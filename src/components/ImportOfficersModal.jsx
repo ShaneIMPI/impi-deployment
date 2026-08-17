@@ -9,7 +9,6 @@ const TARGET_FIELDS = [
   { key: 'id_number', label: 'ID Number' },
   { key: 'psira_number', label: 'PSIRA Number' },
   { key: 'psira_grade', label: 'PSIRA Grade' },
-  { key: 'phone', label: 'Phone / Cell' },
 ]
 
 const GUESS_PATTERNS = {
@@ -19,7 +18,6 @@ const GUESS_PATTERNS = {
   id_number: /id.*(no|number)|identity|^id$/i,
   psira_number: /psira.*(no|number)/i,
   psira_grade: /grade/i,
-  phone: /phone|cell|mobile|contact/i,
 }
 
 function guessMapping(headers) {
@@ -90,7 +88,6 @@ export default function ImportOfficersModal({ existingOfficers, onClose, onImpor
       id_number: mapping.id_number ? String(row[mapping.id_number] || '').trim() : '',
       psira_number: mapping.psira_number ? String(row[mapping.psira_number] || '').trim() : '',
       psira_grade: mapping.psira_grade ? String(row[mapping.psira_grade] || '').trim() : '',
-      phone: mapping.phone ? String(row[mapping.phone] || '').trim() : '',
       special_events: false,
     }
   }
@@ -122,18 +119,27 @@ export default function ImportOfficersModal({ existingOfficers, onClose, onImpor
 
     let inserted = 0
     let failed = 0
+    let lastErrorMessage = ''
     const chunkSize = 100
     for (let i = 0; i < toInsert.length; i += chunkSize) {
       const chunk = toInsert.slice(i, i + chunkSize)
       const { error: insertError, data } = await supabase.from('officers').insert(chunk).select()
       if (insertError) {
         failed += chunk.length
+        lastErrorMessage = insertError.message
       } else {
         inserted += data?.length || chunk.length
       }
     }
 
-    setResults({ inserted, failed, skippedNoName, skippedDuplicate, total: rows.length })
+    setResults({
+      inserted,
+      failed,
+      skippedNoName,
+      skippedDuplicate,
+      total: rows.length,
+      lastErrorMessage,
+    })
     setStep('done')
     onImported()
   }
@@ -196,7 +202,6 @@ export default function ImportOfficersModal({ existingOfficers, onClose, onImpor
                   <th>ID Number</th>
                   <th>PSIRA No.</th>
                   <th>Grade</th>
-                  <th>Phone</th>
                 </tr>
               </thead>
               <tbody>
@@ -210,7 +215,6 @@ export default function ImportOfficersModal({ existingOfficers, onClose, onImpor
                       <td>{o.id_number}</td>
                       <td>{o.psira_number}</td>
                       <td>{o.psira_grade}</td>
-                      <td>{o.phone}</td>
                     </tr>
                   )
                 })}
@@ -246,8 +250,9 @@ export default function ImportOfficersModal({ existingOfficers, onClose, onImpor
             )}
             {results.failed > 0 && (
               <p className="error-text">
-                {results.failed} failed to save — please check those rows and
-                try again.
+                {results.failed} failed to save
+                {results.lastErrorMessage ? `: ${results.lastErrorMessage}` : ''} — please
+                check those rows and try again.
               </p>
             )}
             <div className="signature-actions">
