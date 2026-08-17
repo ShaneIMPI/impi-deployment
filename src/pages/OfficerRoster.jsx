@@ -8,9 +8,7 @@ const emptyOfficer = {
   full_name: '',
   id_number: '',
   psira_number: '',
-  phone_number: '',
-  special_events: false,
-  active: true,
+  psira_grade: '',
 }
 
 export default function OfficerRoster() {
@@ -51,9 +49,7 @@ export default function OfficerRoster() {
       full_name: o.full_name || '',
       id_number: o.id_number || '',
       psira_number: o.psira_number || '',
-      phone_number: o.phone_number || '',
-      special_events: !!o.special_events,
-      active: o.active !== false,
+      psira_grade: o.psira_grade || '',
     })
   }
 
@@ -135,7 +131,7 @@ export default function OfficerRoster() {
           {!isViewer && (
             <form onSubmit={saveOfficer} className="inline-form">
               <input
-                placeholder="Full Name"
+                placeholder="Name and Surname"
                 value={form.full_name}
                 onChange={(e) => setForm({ ...form, full_name: e.target.value })}
               />
@@ -150,26 +146,10 @@ export default function OfficerRoster() {
                 onChange={(e) => setForm({ ...form, psira_number: e.target.value })}
               />
               <input
-                placeholder="Phone Number"
-                value={form.phone_number}
-                onChange={(e) => setForm({ ...form, phone_number: e.target.value })}
+                placeholder="PSIRA Grade (e.g. Gr C)"
+                value={form.psira_grade}
+                onChange={(e) => setForm({ ...form, psira_grade: e.target.value })}
               />
-              <label className="section-break-toggle">
-                <input
-                  type="checkbox"
-                  checked={form.special_events}
-                  onChange={(e) => setForm({ ...form, special_events: e.target.checked })}
-                />
-                Special Events
-              </label>
-              <label className="section-break-toggle">
-                <input
-                  type="checkbox"
-                  checked={form.active}
-                  onChange={(e) => setForm({ ...form, active: e.target.checked })}
-                />
-                Active
-              </label>
               <button type="submit" className="btn-primary">
                 {editingId ? 'Save Changes' : 'Add Officer'}
               </button>
@@ -187,9 +167,7 @@ export default function OfficerRoster() {
                 <th>Name</th>
                 <th>ID Number</th>
                 <th>PSIRA No.</th>
-                <th>Phone</th>
-                <th>Special Events</th>
-                <th>Active</th>
+                <th>PSIRA Grade</th>
                 {!isViewer && <th></th>}
               </tr>
             </thead>
@@ -199,9 +177,7 @@ export default function OfficerRoster() {
                   <td>{o.full_name}</td>
                   <td>{o.id_number}</td>
                   <td>{o.psira_number}</td>
-                  <td>{o.phone_number}</td>
-                  <td>{o.special_events ? 'Yes' : 'No'}</td>
-                  <td>{o.active !== false ? 'Yes' : 'No'}</td>
+                  <td>{o.psira_grade}</td>
                   {!isViewer && (
                     <td className="row-actions">
                       <a onClick={() => startEdit(o)} style={{ cursor: 'pointer' }}>
