@@ -238,6 +238,21 @@ input, select { padding: 6px; }
   padding: 2px;
 }
 
+.import-modal { max-width: 640px; max-height: 85vh; overflow-y: auto; }
+.import-mapping-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px 16px;
+  margin: 12px 0;
+}
+.import-mapping-row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 13px;
+}
+.import-mapping-row select { padding: 6px; border: 1px solid #ccc; border-radius: 4px; }
+
 .signature-overlay {
   position: fixed;
   inset: 0;
