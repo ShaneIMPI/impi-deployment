@@ -5,7 +5,7 @@ import Header from '../components/Header'
 import ImportOfficersModal from '../components/ImportOfficersModal'
 
 const emptyOfficer = {
-  full_name: '',
+  name: '',
   id_number: '',
   psira_number: '',
   psira_grade: '',
@@ -31,7 +31,7 @@ export default function OfficerRoster() {
     const { data } = await supabase
       .from('officers')
       .select('*')
-      .order('full_name', { ascending: true })
+      .order('last_name', { ascending: true })
     setOfficers(data || [])
   }
 
@@ -46,7 +46,7 @@ export default function OfficerRoster() {
   function startEdit(o) {
     setEditingId(o.id)
     setForm({
-      full_name: o.full_name || '',
+      name: [o.first_name, o.last_name].filter(Boolean).join(' '),
       id_number: o.id_number || '',
       psira_number: o.psira_number || '',
       psira_grade: o.psira_grade || '',
@@ -60,11 +60,21 @@ export default function OfficerRoster() {
 
   async function saveOfficer(e) {
     e.preventDefault()
-    if (!form.full_name) return
+    if (!form.name.trim()) return
     setSaveError('')
+    const parts = form.name.trim().split(/\s+/)
+    const first_name = parts.shift() || ''
+    const last_name = parts.join(' ')
+    const payload = {
+      first_name,
+      last_name,
+      id_number: form.id_number,
+      psira_number: form.psira_number,
+      psira_grade: form.psira_grade,
+    }
     const { error } = editingId
-      ? await supabase.from('officers').update(form).eq('id', editingId)
-      : await supabase.from('officers').insert(form)
+      ? await supabase.from('officers').update(payload).eq('id', editingId)
+      : await supabase.from('officers').insert(payload)
     if (error) {
       setSaveError(error.message)
       return
@@ -132,8 +142,8 @@ export default function OfficerRoster() {
             <form onSubmit={saveOfficer} className="inline-form">
               <input
                 placeholder="Name and Surname"
-                value={form.full_name}
-                onChange={(e) => setForm({ ...form, full_name: e.target.value })}
+                value={form.name}
+                onChange={(e) => setForm({ ...form, name: e.target.value })}
               />
               <input
                 placeholder="ID Number"
@@ -174,7 +184,9 @@ export default function OfficerRoster() {
             <tbody>
               {officers.map((o) => (
                 <tr key={o.id} className={editingId === o.id ? 'warning-cell' : ''}>
-                  <td>{o.full_name}</td>
+                  <td>
+                    {o.first_name} {o.last_name}
+                  </td>
                   <td>{o.id_number}</td>
                   <td>{o.psira_number}</td>
                   <td>{o.psira_grade}</td>
