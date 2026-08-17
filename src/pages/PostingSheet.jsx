@@ -26,6 +26,7 @@ export default function PostingSheet() {
   const [isViewer, setIsViewer] = useState(false)
   const [isOnline, setIsOnline] = useState(navigator.onLine)
   const [pendingCount, setPendingCount] = useState(getQueueCount())
+  const [editingTime, setEditingTime] = useState(null) // { slotId, field: 'time_in' | 'time_out' }
 
   useEffect(() => {
     load()
@@ -159,8 +160,8 @@ export default function PostingSheet() {
       last_name: o.last_name,
       id_number: o.id_number,
       psira_number: o.psira_number,
-      bib_serial: o.bib_serial,
       assigned_grade: o.psira_grade || '',
+      special_events: !!o.special_events,
     })
   }
 
@@ -171,6 +172,14 @@ export default function PostingSheet() {
   async function checkOut(slot) {
     if (isViewer) return
     updateSlot(slot.id, { status: 'checked_out', time_out: new Date().toISOString() })
+  }
+
+  function toDatetimeLocalValue(iso) {
+    const d = new Date(iso)
+    const pad = (n) => String(n).padStart(2, '0')
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(
+      d.getHours()
+    )}:${pad(d.getMinutes())}`
   }
 
   const [editingDetails, setEditingDetails] = useState(false)
@@ -359,6 +368,7 @@ export default function PostingSheet() {
             const officerType = typesByName[lineItem.officer_type_name]
             const view = deriveSlotView(slot, lineItem, officerType)
             const unmapped = !officerType
+            const isManagerRow = /manager|reaction/i.test(lineItem.officer_type_name || '')
 
             return (
               <tr key={slot.id}>
@@ -430,6 +440,26 @@ export default function PostingSheet() {
                       ⚠
                     </span>
                   )}
+                  {isManagerRow && !isViewer && (
+                    <label
+                      className="no-print manager-payrun-toggle"
+                      title="Untick for in-house/MP managers or reaction officers who aren't paid through this Pay Run. Tick for those sourced from a supplier."
+                    >
+                      <input
+                        type="checkbox"
+                        checked={slot.include_in_payrun !== false}
+                        onChange={(e) =>
+                          updateSlot(slot.id, { include_in_payrun: e.target.checked })
+                        }
+                      />
+                      In Pay Run
+                    </label>
+                  )}
+                  {isManagerRow && slot.include_in_payrun === false && (
+                    <span className="no-print mp-badge" title="Excluded from Pay Run">
+                      MP
+                    </span>
+                  )}
                 </td>
                 <td className="no-print-input">
                   <select
@@ -452,7 +482,7 @@ export default function PostingSheet() {
                     value={blankMode ? '' : slot.assigned_grade || ''}
                     disabled
                     readOnly
-                />
+                  />
                 </td>
                 <td className="checkbox-cell">
                   <input
@@ -465,11 +495,39 @@ export default function PostingSheet() {
                   />
                 </td>
                 <td className="no-print-input">
-                  {slot.time_in ? (
-                    new Date(slot.time_in).toLocaleTimeString('en-ZA', {
-                      hour: '2-digit',
-                      minute: '2-digit',
-                    })
+                  {editingTime?.slotId === slot.id && editingTime.field === 'time_in' ? (
+                    <input
+                      type="datetime-local"
+                      className="time-edit-input"
+                      autoFocus
+                      defaultValue={
+                        slot.time_in ? toDatetimeLocalValue(slot.time_in) : toDatetimeLocalValue(new Date())
+                      }
+                      onBlur={(e) => {
+                        if (e.target.value) {
+                          updateSlot(slot.id, { time_in: new Date(e.target.value).toISOString() })
+                        }
+                        setEditingTime(null)
+                      }}
+                    />
+                  ) : slot.time_in ? (
+                    isViewer ? (
+                      new Date(slot.time_in).toLocaleTimeString('en-ZA', {
+                        hour: '2-digit',
+                        minute: '2-digit',
+                      })
+                    ) : (
+                      <button
+                        className="no-print time-edit-btn"
+                        title="Click to correct this time"
+                        onClick={() => setEditingTime({ slotId: slot.id, field: 'time_in' })}
+                      >
+                        {new Date(slot.time_in).toLocaleTimeString('en-ZA', {
+                          hour: '2-digit',
+                          minute: '2-digit',
+                        })}
+                      </button>
+                    )
                   ) : isViewer ? (
                     '—'
                   ) : (
@@ -479,11 +537,39 @@ export default function PostingSheet() {
                   )}
                 </td>
                 <td className="no-print-input">
-                  {slot.time_out ? (
-                    new Date(slot.time_out).toLocaleTimeString('en-ZA', {
-                      hour: '2-digit',
-                      minute: '2-digit',
-                    })
+                  {editingTime?.slotId === slot.id && editingTime.field === 'time_out' ? (
+                    <input
+                      type="datetime-local"
+                      className="time-edit-input"
+                      autoFocus
+                      defaultValue={
+                        slot.time_out ? toDatetimeLocalValue(slot.time_out) : toDatetimeLocalValue(new Date())
+                      }
+                      onBlur={(e) => {
+                        if (e.target.value) {
+                          updateSlot(slot.id, { time_out: new Date(e.target.value).toISOString() })
+                        }
+                        setEditingTime(null)
+                      }}
+                    />
+                  ) : slot.time_out ? (
+                    isViewer ? (
+                      new Date(slot.time_out).toLocaleTimeString('en-ZA', {
+                        hour: '2-digit',
+                        minute: '2-digit',
+                      })
+                    ) : (
+                      <button
+                        className="no-print time-edit-btn"
+                        title="Click to correct this time"
+                        onClick={() => setEditingTime({ slotId: slot.id, field: 'time_out' })}
+                      >
+                        {new Date(slot.time_out).toLocaleTimeString('en-ZA', {
+                          hour: '2-digit',
+                          minute: '2-digit',
+                        })}
+                      </button>
+                    )
                   ) : isViewer ? (
                     '—'
                   ) : (

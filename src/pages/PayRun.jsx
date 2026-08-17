@@ -62,6 +62,7 @@ export default function PayRun() {
         rows.push([lineItem.section_text])
         return
       }
+      if (slot.include_in_payrun === false) return
       counter += 1
       const officerType = typesByName[lineItem.officer_type_name]
       const view = deriveSlotView(slot, lineItem, officerType)
@@ -145,6 +146,8 @@ export default function PayRun() {
                 </tr>
               )
             }
+
+            if (slot.include_in_payrun === false) return null
 
             counter += 1
             const officerType = typesByName[lineItem.officer_type_name]
