@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { supabase } from '../supabaseClient'
 import { getIsViewer } from '../lib/roles'
 import Header from '../components/Header'
+import ImportOfficersModal from '../components/ImportOfficersModal'
 
 const emptyOfficer = {
   first_name: '',
@@ -9,7 +10,7 @@ const emptyOfficer = {
   id_number: '',
   psira_number: '',
   psira_grade: '',
-  bib_serial: '',
+  special_events: false,
   phone: '',
 }
 
@@ -17,8 +18,10 @@ export default function OfficerRoster() {
   const [officers, setOfficers] = useState([])
   const [types, setTypes] = useState([])
   const [form, setForm] = useState(emptyOfficer)
+  const [editingId, setEditingId] = useState(null)
   const [tab, setTab] = useState('officers')
   const [isViewer, setIsViewer] = useState(false)
+  const [showImport, setShowImport] = useState(false)
 
   useEffect(() => {
     loadOfficers()
@@ -42,17 +45,41 @@ export default function OfficerRoster() {
     setTypes(data || [])
   }
 
-  async function addOfficer(e) {
+  function startEdit(o) {
+    setEditingId(o.id)
+    setForm({
+      first_name: o.first_name || '',
+      last_name: o.last_name || '',
+      id_number: o.id_number || '',
+      psira_number: o.psira_number || '',
+      psira_grade: o.psira_grade || '',
+      special_events: !!o.special_events,
+      phone: o.phone || '',
+    })
+  }
+
+  function cancelEdit() {
+    setEditingId(null)
+    setForm(emptyOfficer)
+  }
+
+  async function saveOfficer(e) {
     e.preventDefault()
     if (!form.first_name || !form.last_name) return
-    await supabase.from('officers').insert(form)
+    if (editingId) {
+      await supabase.from('officers').update(form).eq('id', editingId)
+    } else {
+      await supabase.from('officers').insert(form)
+    }
     setForm(emptyOfficer)
+    setEditingId(null)
     loadOfficers()
   }
 
   async function removeOfficer(id) {
     if (!confirm('Remove this officer from the roster?')) return
     await supabase.from('officers').delete().eq('id', id)
+    if (editingId === id) cancelEdit()
     loadOfficers()
   }
 
@@ -93,7 +120,12 @@ export default function OfficerRoster() {
       {tab === 'officers' && (
         <>
           {!isViewer && (
-            <form onSubmit={addOfficer} className="inline-form">
+            <div className="event-meta no-print" style={{ marginBottom: 8 }}>
+              <button onClick={() => setShowImport(true)}>Import from Excel</button>
+            </div>
+          )}
+          {!isViewer && (
+            <form onSubmit={saveOfficer} className="inline-form">
               <input
                 placeholder="First Name"
                 value={form.first_name}
@@ -119,14 +151,22 @@ export default function OfficerRoster() {
                 value={form.psira_grade}
                 onChange={(e) => setForm({ ...form, psira_grade: e.target.value })}
               />
-              <input
-                placeholder="BIB / Card Serial"
-                value={form.bib_serial}
-                onChange={(e) => setForm({ ...form, bib_serial: e.target.value })}
-              />
+              <label className="section-break-toggle">
+                <input
+                  type="checkbox"
+                  checked={form.special_events}
+                  onChange={(e) => setForm({ ...form, special_events: e.target.checked })}
+                />
+                Special Events
+              </label>
               <button type="submit" className="btn-primary">
-                Add Officer
+                {editingId ? 'Save Changes' : 'Add Officer'}
               </button>
+              {editingId && (
+                <button type="button" onClick={cancelEdit}>
+                  Cancel
+                </button>
+              )}
             </form>
           )}
 
@@ -137,23 +177,28 @@ export default function OfficerRoster() {
                 <th>ID Number</th>
                 <th>PSIRA No.</th>
                 <th>Grade</th>
-                <th>BIB Serial</th>
+                <th>Special Events</th>
                 {!isViewer && <th></th>}
               </tr>
             </thead>
             <tbody>
               {officers.map((o) => (
-                <tr key={o.id}>
+                <tr key={o.id} className={editingId === o.id ? 'warning-cell' : ''}>
                   <td>
                     {o.first_name} {o.last_name}
                   </td>
                   <td>{o.id_number}</td>
                   <td>{o.psira_number}</td>
                   <td>{o.psira_grade}</td>
-                  <td>{o.bib_serial}</td>
+                  <td>{o.special_events ? 'Yes' : 'No'}</td>
                   {!isViewer && (
-                    <td>
-                      <button onClick={() => removeOfficer(o.id)}>Remove</button>
+                    <td className="row-actions">
+                      <a onClick={() => startEdit(o)} style={{ cursor: 'pointer' }}>
+                        Edit
+                      </a>
+                      <a onClick={() => removeOfficer(o.id)} style={{ cursor: 'pointer' }}>
+                        Remove
+                      </a>
                     </td>
                   )}
                 </tr>
@@ -216,6 +261,14 @@ export default function OfficerRoster() {
             </tbody>
           </table>
         </>
+      )}
+
+      {showImport && (
+        <ImportOfficersModal
+          existingOfficers={officers}
+          onClose={() => setShowImport(false)}
+          onImported={loadOfficers}
+        />
       )}
     </div>
   )
