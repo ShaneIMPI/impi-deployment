@@ -201,6 +201,42 @@ input, select { padding: 6px; }
   background: #f0f0f0;
   cursor: not-allowed;
 }
+.manager-payrun-toggle {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #555;
+  cursor: pointer;
+  margin-top: 3px;
+}
+.mp-badge {
+  display: inline-block;
+  margin-left: 6px;
+  background: #eee;
+  color: #555;
+  border: 1px solid #ccc;
+  border-radius: 3px;
+  padding: 1px 5px;
+  font-size: 10px;
+  font-weight: 700;
+}
+.time-edit-btn {
+  background: none;
+  border: none;
+  border-bottom: 1px dashed #999;
+  padding: 0;
+  font-size: 13px;
+  cursor: pointer;
+  color: var(--impi-dark);
+}
+.time-edit-btn:hover { border-bottom-color: var(--impi-red); }
+.time-edit-input {
+  width: 100%;
+  font-size: 12px;
+  padding: 2px;
+}
 
 .signature-overlay {
   position: fixed;
