@@ -15,7 +15,6 @@ const GUESS_PATTERNS = {
   psira_number: /psira.*(no|number)/i,
   psira_grade: /grade/i,
 }
-
 function guessMapping(headers) {
   const mapping = {}
   for (const field of Object.keys(GUESS_PATTERNS)) {
@@ -60,8 +59,13 @@ export default function ImportOfficersModal({ existingOfficers, onClose, onImpor
   }
 
   function buildOfficer(row) {
+    const rawName = mapping.full_name ? String(row[mapping.full_name] || '').trim() : ''
+    const parts = rawName.split(/\s+/).filter(Boolean)
+    const first_name = parts.shift() || ''
+    const last_name = parts.join(' ')
     return {
-      full_name: mapping.full_name ? String(row[mapping.full_name] || '').trim() : '',
+      first_name,
+      last_name,
       id_number: mapping.id_number ? String(row[mapping.id_number] || '').trim() : '',
       psira_number: mapping.psira_number ? String(row[mapping.psira_number] || '').trim() : '',
       psira_grade: mapping.psira_grade ? String(row[mapping.psira_grade] || '').trim() : '',
@@ -80,7 +84,7 @@ export default function ImportOfficersModal({ existingOfficers, onClose, onImpor
 
     for (const row of rows) {
       const officer = buildOfficer(row)
-      if (!officer.full_name) {
+      if (!officer.first_name && !officer.last_name) {
         skippedNoName += 1
         continue
       }
@@ -185,7 +189,9 @@ export default function ImportOfficersModal({ existingOfficers, onClose, onImpor
                   const o = buildOfficer(row)
                   return (
                     <tr key={i}>
-                      <td>{o.full_name}</td>
+                      <td>
+                        {o.first_name} {o.last_name}
+                      </td>
                       <td>{o.id_number}</td>
                       <td>{o.psira_number}</td>
                       <td>{o.psira_grade}</td>
