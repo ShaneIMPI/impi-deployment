@@ -9,6 +9,7 @@ const emptyOfficer = {
   id_number: '',
   psira_number: '',
   psira_grade: '',
+  special_events: false,
 }
 
 export default function OfficerRoster() {
@@ -50,6 +51,7 @@ export default function OfficerRoster() {
       id_number: o.id_number || '',
       psira_number: o.psira_number || '',
       psira_grade: o.psira_grade || '',
+      special_events: !!o.special_events,
     })
   }
 
@@ -71,6 +73,7 @@ export default function OfficerRoster() {
       id_number: form.id_number,
       psira_number: form.psira_number,
       psira_grade: form.psira_grade,
+      special_events: form.special_events,
     }
     const { error } = editingId
       ? await supabase.from('officers').update(payload).eq('id', editingId)
@@ -160,6 +163,14 @@ export default function OfficerRoster() {
                 value={form.psira_grade}
                 onChange={(e) => setForm({ ...form, psira_grade: e.target.value })}
               />
+              <label className="section-break-toggle">
+                <input
+                  type="checkbox"
+                  checked={form.special_events}
+                  onChange={(e) => setForm({ ...form, special_events: e.target.checked })}
+                />
+                Special Events
+              </label>
               <button type="submit" className="btn-primary">
                 {editingId ? 'Save Changes' : 'Add Officer'}
               </button>
@@ -178,6 +189,7 @@ export default function OfficerRoster() {
                 <th>ID Number</th>
                 <th>PSIRA No.</th>
                 <th>PSIRA Grade</th>
+                <th>Special Events</th>
                 {!isViewer && <th></th>}
               </tr>
             </thead>
@@ -190,6 +202,7 @@ export default function OfficerRoster() {
                   <td>{o.id_number}</td>
                   <td>{o.psira_number}</td>
                   <td>{o.psira_grade}</td>
+                  <td>{o.special_events ? 'Yes' : 'No'}</td>
                   {!isViewer && (
                     <td className="row-actions">
                       <a onClick={() => startEdit(o)} style={{ cursor: 'pointer' }}>
