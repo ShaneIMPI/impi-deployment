@@ -194,10 +194,17 @@ export function parseBuilderSheet(workbook) {
   }
 
   // Only keep personnel postings (Security & Cleaning) — equipment/service
-  // lines like Medics, Fencing, and JOC Compliance have no Officer Type in
-  // the Builder sheet, so they're not part of the posting sheet.
+  // lines like Fencing and JOC Compliance have no Officer Type in the
+  // Builder sheet, so they're not part of the posting sheet. Also drop
+  // clearly third-party/supplier-paid services (Medics, ILS, Ambulance,
+  // anything marked "Separate Quote") — IMPI doesn't manage check-in/out
+  // or pay for these, so they don't belong on the Posting Sheet either.
+  // Add more keywords here if other supplier-only services come up.
+  const EXCLUDED_OFFICER_TYPE_PATTERN = /medic|\bils\b|ambulance|separate quote/i
   const withPersonnelOnly = items.filter(
-    (it) => it.rowType !== 'LINE ITEM' || it.officerTypeName
+    (it) =>
+      it.rowType !== 'LINE ITEM' ||
+      (it.officerTypeName && !EXCLUDED_OFFICER_TYPE_PATTERN.test(it.officerTypeName))
   )
 
   // Drop section headers that end up with no line items under them
