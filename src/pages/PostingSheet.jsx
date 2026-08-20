@@ -147,6 +147,13 @@ export default function PostingSheet() {
     }
   }
 
+  async function removeSlot(id) {
+    if (isViewer) return
+    if (!confirm('Remove this posting from the sheet? This cannot be undone.')) return
+    setSlots((prev) => prev.filter((s) => s.id !== id))
+    await supabase.from('posting_slots').delete().eq('id', id)
+  }
+
   function pickOfficer(slot, officerId) {
     if (isViewer) return
     if (!officerId) {
@@ -367,7 +374,7 @@ export default function PostingSheet() {
             const officerType = typesByName[lineItem.officer_type_name]
             const view = deriveSlotView(slot, lineItem, officerType)
             const unmapped = !officerType
-            const isManagerRow = /manager|reaction/i.test(lineItem.officer_type_name || '')
+            const isManagerRow = /manager|reaction|safety/i.test(lineItem.officer_type_name || '')
 
             return (
               <tr key={slot.id}>
@@ -432,6 +439,7 @@ export default function PostingSheet() {
                   />
                 </td>
                 <td className={unmapped ? 'warning-cell' : ''}>
+                  {isManagerRow && slot.include_in_payrun === false ? 'IMPI - ' : ''}
                   {view.posting}
                   {unmapped && (
                     <span title="This Officer Type isn't in the rate card yet — set it up on the Officer Roster page.">
@@ -442,22 +450,32 @@ export default function PostingSheet() {
                   {isManagerRow && !isViewer && (
                     <label
                       className="no-print manager-payrun-toggle"
-                      title="Untick for in-house/MP managers or reaction officers who aren't paid through this Pay Run. Tick for those sourced from a supplier."
+                      title="Tick IMPI for your own staff — shown with an IMPI prefix and excluded from this Pay Run. Untick when this posting is filled by a supplier — they'll be included in the Pay Run instead."
                     >
                       <input
                         type="checkbox"
-                        checked={slot.include_in_payrun !== false}
+                        checked={slot.include_in_payrun === false}
                         onChange={(e) =>
-                          updateSlot(slot.id, { include_in_payrun: e.target.checked })
+                          updateSlot(slot.id, { include_in_payrun: !e.target.checked })
                         }
                       />
-                      In Pay Run
+                      IMPI
                     </label>
                   )}
                   {isManagerRow && slot.include_in_payrun === false && (
                     <span className="no-print mp-badge" title="Excluded from Pay Run">
-                      MP
+                      IMPI
                     </span>
+                  )}
+                  {!isViewer && (
+                    <button
+                      type="button"
+                      className="no-print remove-posting-btn"
+                      title="Remove this posting from the sheet"
+                      onClick={() => removeSlot(slot.id)}
+                    >
+                      ✕
+                    </button>
                   )}
                 </td>
                 <td className="no-print-input">

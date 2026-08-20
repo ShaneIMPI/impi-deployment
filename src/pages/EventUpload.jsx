@@ -112,13 +112,23 @@ export default function EventUpload() {
 
       // 4. Expand into posting slots
       const slotPlan = expandLineItemsToSlots(lineItems)
-      const slotRows = slotPlan.map((s) => ({
-        event_id: eventRow.id,
-        line_item_id: sortedLineItems[s.lineItemIndex].id,
-        slot_index: s.slotIndex,
-        sort_order: s.sortOrder,
-        status: 'vacant',
-      }))
+      // Security Managers and Safety Officers are IMPI's own staff by
+      // default — excluded from the Pay Run unless Shane manually flips
+      // the IMPI toggle off for a shift filled by a supplier instead.
+      const IMPI_DEFAULT_PATTERN = /security manager|safety officer/i
+      const slotRows = slotPlan.map((s) => {
+        const li = lineItems[s.lineItemIndex]
+        const isImpiDefault =
+          li && li.officerTypeName && IMPI_DEFAULT_PATTERN.test(li.officerTypeName)
+        return {
+          event_id: eventRow.id,
+          line_item_id: sortedLineItems[s.lineItemIndex].id,
+          slot_index: s.slotIndex,
+          sort_order: s.sortOrder,
+          status: 'vacant',
+          include_in_payrun: isImpiDefault ? false : true,
+        }
+      })
       const { error: slotErr } = await supabase.from('posting_slots').insert(slotRows)
       if (slotErr) throw slotErr
 
