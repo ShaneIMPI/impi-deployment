@@ -222,6 +222,16 @@ input, select { padding: 6px; }
   font-size: 10px;
   font-weight: 700;
 }
+.remove-posting-btn {
+  background: none;
+  border: none;
+  color: #999;
+  cursor: pointer;
+  font-size: 12px;
+  padding: 0 0 0 8px;
+  float: right;
+}
+.remove-posting-btn:hover { color: var(--impi-red); }
 .time-edit-btn {
   background: none;
   border: none;
