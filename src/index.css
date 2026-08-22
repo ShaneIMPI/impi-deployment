@@ -127,6 +127,18 @@ body {
   cursor: pointer;
   text-transform: none;
 }
+.add-posting-btn {
+  background: white;
+  border: 1px solid var(--impi-dark);
+  color: var(--impi-dark);
+  border-radius: 3px;
+  padding: 3px 8px;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.add-posting-btn:hover { background: var(--impi-dark); color: white; }
 
 .posting-table input, .posting-table select {
   width: 100%;
