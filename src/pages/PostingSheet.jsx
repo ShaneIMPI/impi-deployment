@@ -114,6 +114,28 @@ export default function PostingSheet() {
     return m
   }, [types])
 
+  // For each SECTION HEADER's line item id, the sort_order of the last
+  // slot currently in that section — new postings get inserted right
+  // after this point, and everything after it shifts down to make room.
+  const sectionEndSortOrder = useMemo(() => {
+    const map = {}
+    let currentHeaderLineItemId = null
+    let currentMax = null
+    for (const slot of slots) {
+      const li = lineItemsById[slot.line_item_id]
+      if (!li) continue
+      if (li.row_type === 'SECTION HEADER') {
+        if (currentHeaderLineItemId !== null) map[currentHeaderLineItemId] = currentMax
+        currentHeaderLineItemId = li.id
+        currentMax = slot.sort_order
+      } else {
+        currentMax = slot.sort_order
+      }
+    }
+    if (currentHeaderLineItemId !== null) map[currentHeaderLineItemId] = currentMax
+    return map
+  }, [slots, lineItemsById])
+
   const { totalPostings, signedCount } = useMemo(() => {
     const postingSlots = slots.filter((s) => {
       const li = lineItemsById[s.line_item_id]
@@ -154,6 +176,78 @@ export default function PostingSheet() {
     await supabase.from('posting_slots').delete().eq('id', id)
   }
 
+  const [addingToHeaderId, setAddingToHeaderId] = useState(null)
+  const [addForm, setAddForm] = useState({ officer_type_name: '', posting_location: '', qty: 1 })
+  const [addSaving, setAddSaving] = useState(false)
+
+  async function addPosting() {
+    if (isViewer || !addingToHeaderId) return
+    const officerTypeName = addForm.officer_type_name.trim()
+    if (!officerTypeName) return
+    const qty = Math.max(1, Number(addForm.qty) || 1)
+    const insertAfter = sectionEndSortOrder[addingToHeaderId]
+    setAddSaving(true)
+
+    // Make room: everything after the insertion point shifts down by qty.
+    const toShift = slots.filter((s) => s.sort_order > insertAfter)
+    const concurrency = 20
+    for (let i = 0; i < toShift.length; i += concurrency) {
+      const chunk = toShift.slice(i, i + concurrency)
+      await Promise.all(
+        chunk.map((s) =>
+          supabase.from('posting_slots').update({ sort_order: s.sort_order + qty }).eq('id', s.id)
+        )
+      )
+    }
+
+    // Security Managers and Safety Officers default to IMPI (excluded
+    // from Pay Run), same rule as a fresh quotation import.
+    const IMPI_DEFAULT_PATTERN = /security manager|safety officer/i
+    const isImpiDefault = IMPI_DEFAULT_PATTERN.test(officerTypeName)
+
+    const { data: newLineItem, error: liError } = await supabase
+      .from('quote_line_items')
+      .insert({
+        event_id: eventId,
+        row_type: 'LINE ITEM',
+        sort_order: insertAfter,
+        qty,
+        officer_type_name: officerTypeName,
+        posting_location: addForm.posting_location.trim(),
+        shifts: 1,
+      })
+      .select()
+      .single()
+    if (liError) {
+      alert('Could not add posting: ' + liError.message)
+      setAddSaving(false)
+      return
+    }
+
+    const newSlotRows = []
+    for (let s = 1; s <= qty; s++) {
+      newSlotRows.push({
+        event_id: eventId,
+        line_item_id: newLineItem.id,
+        slot_index: s,
+        sort_order: insertAfter + s,
+        status: 'vacant',
+        include_in_payrun: isImpiDefault ? false : true,
+      })
+    }
+    const { error: slotError } = await supabase.from('posting_slots').insert(newSlotRows)
+    if (slotError) {
+      alert('Could not add posting slots: ' + slotError.message)
+      setAddSaving(false)
+      return
+    }
+
+    setAddingToHeaderId(null)
+    setAddForm({ officer_type_name: '', posting_location: '', qty: 1 })
+    setAddSaving(false)
+    load() // reload so the shifted + new rows come back in the right order
+  }
+
   function pickOfficer(slot, officerId) {
     if (isViewer) return
     if (!officerId) {
@@ -168,6 +262,7 @@ export default function PostingSheet() {
       id_number: o.id_number,
       psira_number: o.psira_number,
       assigned_grade: o.psira_grade || '',
+      special_events: !!o.special_events,
     })
   }
 
@@ -352,6 +447,15 @@ export default function PostingSheet() {
                   <td colSpan={11}>
                     <div className="section-header-inner">
                       <span>{lineItem.section_text}</span>
+                      {!isViewer && (
+                        <button
+                          type="button"
+                          className="no-print add-posting-btn"
+                          onClick={() => setAddingToHeaderId(lineItem.id)}
+                        >
+                          + Add Posting
+                        </button>
+                      )}
                       {!isViewer && !isFirstSection && (
                         <label className="no-print section-break-toggle">
                           <input
@@ -626,6 +730,63 @@ export default function PostingSheet() {
           }}
           onClose={() => setSigningSlotId(null)}
         />
+      )}
+
+      {addingToHeaderId && (
+        <div className="signature-overlay">
+          <div className="signature-modal">
+            <h3>Add Posting</h3>
+            <p>
+              This is added to the section you clicked, right after its current last
+              row. Existing rows below it (including anyone already signed in) shift
+              down but keep all their data — nothing is touched.
+            </p>
+            <div className="inline-form" style={{ flexDirection: 'column' }}>
+              <input
+                list="officer-type-options"
+                placeholder="Officer Type (e.g. Event Security Officer Gr C)"
+                value={addForm.officer_type_name}
+                onChange={(e) => setAddForm({ ...addForm, officer_type_name: e.target.value })}
+              />
+              <datalist id="officer-type-options">
+                {types.map((t) => (
+                  <option key={t.id} value={t.type_name} />
+                ))}
+              </datalist>
+              <input
+                placeholder="Posting / Location (e.g. Gate 2)"
+                value={addForm.posting_location}
+                onChange={(e) => setAddForm({ ...addForm, posting_location: e.target.value })}
+              />
+              <input
+                type="number"
+                min="1"
+                placeholder="Quantity"
+                value={addForm.qty}
+                onChange={(e) => setAddForm({ ...addForm, qty: e.target.value })}
+              />
+            </div>
+            <div className="signature-actions">
+              <button
+                className="btn-primary"
+                onClick={addPosting}
+                disabled={!addForm.officer_type_name.trim() || addSaving}
+              >
+                {addSaving
+                  ? 'Adding…'
+                  : `Add ${addForm.qty || 1} Posting${Number(addForm.qty) > 1 ? 's' : ''}`}
+              </button>
+              <button
+                onClick={() => {
+                  setAddingToHeaderId(null)
+                  setAddForm({ officer_type_name: '', posting_location: '', qty: 1 })
+                }}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   )
