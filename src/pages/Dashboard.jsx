@@ -68,7 +68,13 @@ export default function Dashboard() {
                 <td>{ev.event_name}</td>
                 <td>{ev.venue}</td>
                 <td>{ev.event_date}</td>
-                <td>{ev.status}</td>
+                <td>
+                  {ev.status === 'completed' ? (
+                    <span className="completed-badge">✓ Completed</span>
+                  ) : (
+                    <span className="active-badge">Active</span>
+                  )}
+                </td>
                 <td className="row-actions">
                   <Link to={`/events/${ev.id}/posting-sheet`}>Posting Sheet</Link>
                   <Link to={`/events/${ev.id}/pay-run`}>Pay Run</Link>
