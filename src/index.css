@@ -191,24 +191,6 @@ input, select { padding: 6px; }
   font-size: 12px;
   font-weight: 600;
 }
-.completed-badge {
-  background: #d4edda;
-  color: #1e6b2f;
-  border: 1px solid #a3d9ae;
-  border-radius: 4px;
-  padding: 3px 10px;
-  font-size: 12px;
-  font-weight: 700;
-}
-.active-badge {
-  background: #eee;
-  color: #555;
-  border: 1px solid #ccc;
-  border-radius: 4px;
-  padding: 3px 10px;
-  font-size: 12px;
-  font-weight: 600;
-}
 .offline-badge {
   background: #fff3cd;
   color: #7a5c00;
@@ -340,7 +322,21 @@ input, select { padding: 6px; }
 .posting-table th:nth-child(5), .posting-table td:nth-child(5) { min-width: 90px; }
 
 @media print {
-  .no-print, .no-print-input select, button { display: none !important; }
+  .no-print, .no-print-input select, button:not(.time-edit-btn) { display: none !important; }
+  .time-edit-btn {
+    border: none !important;
+    background: none !important;
+    color: inherit !important;
+    cursor: default !important;
+    padding: 0 !important;
+  }
+  .signature-thumb {
+    border: none !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    background: transparent !important;
+    cursor: default !important;
+  }
   body { background: white; }
   .page { max-width: 100%; padding: 0; }
   .posting-table th { background: var(--impi-red) !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
