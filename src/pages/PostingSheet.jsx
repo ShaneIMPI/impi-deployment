@@ -207,6 +207,46 @@ export default function PostingSheet() {
     return opts
   }, [slots, lineItemsById])
 
+  // For each SECTION HEADER's line item id, every line item id (the
+  // header itself plus all its postings) that belongs to that section —
+  // used to delete a whole section in one go.
+  const sectionLineItemIds = useMemo(() => {
+    const map = {}
+    let currentHeaderId = null
+    let currentIds = []
+    for (const slot of slots) {
+      const li = lineItemsById[slot.line_item_id]
+      if (!li) continue
+      if (li.row_type === 'SECTION HEADER') {
+        if (currentHeaderId !== null) map[currentHeaderId] = currentIds
+        currentHeaderId = li.id
+        currentIds = [li.id]
+      } else if (!currentIds.includes(li.id)) {
+        currentIds.push(li.id)
+      }
+    }
+    if (currentHeaderId !== null) map[currentHeaderId] = currentIds
+    return map
+  }, [slots, lineItemsById])
+
+  async function removeSection(headerLineItemId) {
+    if (isViewer) return
+    const lineItemIds = sectionLineItemIds[headerLineItemId] || [headerLineItemId]
+    const sectionLabel = lineItemsById[headerLineItemId]?.section_text || 'this section'
+    const postingCount = lineItemIds.length - 1
+    const confirmed = confirm(
+      `Remove the entire "${sectionLabel}" section?\n\n` +
+        (postingCount > 0
+          ? `This deletes the section heading and all ${postingCount} posting${postingCount === 1 ? '' : 's'} in it. `
+          : 'This deletes the section heading. ') +
+        'This cannot be undone.'
+    )
+    if (!confirmed) return
+    await supabase.from('posting_slots').delete().in('line_item_id', lineItemIds)
+    await supabase.from('quote_line_items').delete().in('id', lineItemIds)
+    load()
+  }
+
   async function addSection() {
     if (isViewer) return
     const sectionText = sectionForm.section_text.trim()
@@ -216,8 +256,6 @@ export default function PostingSheet() {
     const insertAfter =
       sectionForm.insertAfter === 'END'
         ? slots.reduce((max, s) => Math.max(max, s.sort_order), 0)
-        : sectionForm.insertAfter === 'BEGINNING'
-        ? slots.reduce((min, s) => Math.min(min, s.sort_order), 0) - 1
         : sectionEndSortOrder[sectionForm.insertAfter]
 
     // Make room for the one new header row.
@@ -580,6 +618,15 @@ export default function PostingSheet() {
                           + Add Posting
                         </button>
                       )}
+                      {!isViewer && (
+                        <button
+                          type="button"
+                          className="no-print remove-section-btn"
+                          onClick={() => removeSection(lineItem.id)}
+                        >
+                          🗑 Remove Section
+                        </button>
+                      )}
                       {!isViewer && !isFirstSection && (
                         <label className="no-print section-break-toggle">
                           <input
@@ -608,19 +655,12 @@ export default function PostingSheet() {
               <tr key={slot.id}>
                 <td>{postingCounter}</td>
                 <td className="no-print-input">
-                  <select
-                    value={slot.officer_id || ''}
-                    onChange={(e) => pickOfficer(slot, e.target.value)}
-                    className="no-print"
-                    disabled={isViewer}
-                  >
-                    <option value="">— type manually below —</option>
-                    {officers.map((o) => (
-                      <option key={o.id} value={o.id}>
-                        {o.first_name} {o.last_name}
-                      </option>
-                    ))}
-                  </select>
+                  <OfficerSearchPicker
+                    slot={slot}
+                    officers={officers}
+                    isViewer={isViewer}
+                    onPick={(officerId) => pickOfficer(slot, officerId)}
+                  />
                   <input
                     className="print-input"
                     value={
@@ -763,7 +803,7 @@ export default function PostingSheet() {
                       })
                     ) : (
                       <button
-                        className="time-edit-btn"
+                        className="no-print time-edit-btn"
                         title="Click to correct this time"
                         onClick={() => setEditingTime({ slotId: slot.id, field: 'time_in' })}
                       >
@@ -805,7 +845,7 @@ export default function PostingSheet() {
                       })
                     ) : (
                       <button
-                        className="time-edit-btn"
+                        className="no-print time-edit-btn"
                         title="Click to correct this time"
                         onClick={() => setEditingTime({ slotId: slot.id, field: 'time_out' })}
                       >
@@ -918,9 +958,9 @@ export default function PostingSheet() {
           <div className="signature-modal">
             <h3>Add New Day / Shift</h3>
             <p>
-              Creates a new section heading anywhere on the sheet — beginning, middle,
-              or end (e.g. a shift the client added before your original postings).
-              Add postings to it afterward using its own "+ Add Posting" button.
+              Creates a new section heading (e.g. for coverage the client added after
+              the original quotation). Add postings to it afterward using its own "+
+              Add Posting" button.
             </p>
             <div className="inline-form" style={{ flexDirection: 'column' }}>
               <input
@@ -929,18 +969,17 @@ export default function PostingSheet() {
                 onChange={(e) => setSectionForm({ ...sectionForm, section_text: e.target.value })}
               />
               <label className="section-break-toggle" style={{ flexDirection: 'column', alignItems: 'flex-start' }}>
-                Where should this go?
+                Insert after
                 <select
                   value={sectionForm.insertAfter}
                   onChange={(e) => setSectionForm({ ...sectionForm, insertAfter: e.target.value })}
                 >
-                  <option value="BEGINNING">Beginning of the sheet (before everything)</option>
+                  <option value="END">The very end of the sheet</option>
                   {sectionOptions.map((opt) => (
                     <option key={opt.id} value={opt.id}>
-                      After: {opt.label}
+                      {opt.label}
                     </option>
                   ))}
-                  <option value="END">The very end of the sheet</option>
                 </select>
               </label>
             </div>
@@ -963,6 +1002,73 @@ export default function PostingSheet() {
             </div>
           </div>
         </div>
+      )}
+    </div>
+  )
+}
+
+function OfficerSearchPicker({ slot, officers, isViewer, onPick }) {
+  const [query, setQuery] = useState('')
+  const [open, setOpen] = useState(false)
+
+  const currentOfficer = officers.find((o) => o.id === slot.officer_id)
+
+  const q = query.trim().toLowerCase()
+  const matches = q
+    ? officers
+        .filter((o) => {
+          const first = (o.first_name || '').toLowerCase()
+          const last = (o.last_name || '').toLowerCase()
+          return first.includes(q) || last.includes(q) || `${first} ${last}`.includes(q)
+        })
+        .slice(0, 20)
+    : []
+
+  return (
+    <div className="officer-search no-print">
+      <input
+        type="text"
+        placeholder={
+          currentOfficer
+            ? `${currentOfficer.first_name} ${currentOfficer.last_name}`
+            : 'Search name or surname…'
+        }
+        value={query}
+        disabled={isViewer}
+        onChange={(e) => {
+          setQuery(e.target.value)
+          setOpen(true)
+        }}
+        onFocus={() => setOpen(true)}
+        onBlur={() => setTimeout(() => setOpen(false), 150)}
+      />
+      {open && q && (
+        <ul className="officer-search-results">
+          {matches.length > 0 ? (
+            matches.map((o) => (
+              <li
+                key={o.id}
+                onMouseDown={() => {
+                  onPick(o.id)
+                  setQuery('')
+                  setOpen(false)
+                }}
+              >
+                <span>
+                  {o.first_name} {o.last_name}
+                </span>
+                <span className="officer-search-id">ID: {o.id_number || '—'}</span>
+              </li>
+            ))
+          ) : (
+            <li className="officer-search-empty">No matches</li>
+          )}
+        </ul>
+      )}
+      {slot.officer_id && !isViewer && (
+        <button type="button" className="officer-clear-btn" onMouseDown={() => onPick('')}>
+          ✕ Clear selection
+        </button>
       )}
     </div>
   )
