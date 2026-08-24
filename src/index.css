@@ -139,6 +139,71 @@ body {
   white-space: nowrap;
 }
 .add-posting-btn:hover { background: var(--impi-dark); color: white; }
+.remove-section-btn {
+  background: white;
+  border: 1px solid var(--impi-red);
+  color: var(--impi-red);
+  border-radius: 3px;
+  padding: 3px 8px;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.remove-section-btn:hover { background: var(--impi-red); color: white; }
+
+.officer-search {
+  position: relative;
+}
+.officer-search input {
+  width: 100%;
+  border: 1px solid #ccc;
+  border-radius: 3px;
+  padding: 3px 4px;
+  font-size: 12px;
+}
+.officer-search-results {
+  position: absolute;
+  z-index: 50;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background: white;
+  border: 1px solid #ccc;
+  border-radius: 0 0 4px 4px;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.15);
+  max-height: 200px;
+  overflow-y: auto;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.officer-search-results li {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 8px;
+  font-size: 12px;
+  cursor: pointer;
+  border-bottom: 1px solid #eee;
+}
+.officer-search-results li:hover { background: #fffbe0; }
+.officer-search-results li.officer-search-empty {
+  color: #999;
+  cursor: default;
+  font-style: italic;
+}
+.officer-search-results li.officer-search-empty:hover { background: white; }
+.officer-search-id { color: #777; white-space: nowrap; }
+.officer-clear-btn {
+  background: none;
+  border: none;
+  color: #999;
+  font-size: 10px;
+  cursor: pointer;
+  padding: 2px 0 0;
+}
+.officer-clear-btn:hover { color: var(--impi-red); }
 
 .posting-table input, .posting-table select {
   width: 100%;
@@ -340,21 +405,7 @@ input, select { padding: 6px; }
 .posting-table th:nth-child(5), .posting-table td:nth-child(5) { min-width: 90px; }
 
 @media print {
-  .no-print, .no-print-input select, button:not(.time-edit-btn) { display: none !important; }
-  .time-edit-btn {
-    border: none !important;
-    background: none !important;
-    color: inherit !important;
-    cursor: default !important;
-    padding: 0 !important;
-  }
-  .signature-thumb {
-    border: none !important;
-    border-radius: 0 !important;
-    box-shadow: none !important;
-    background: transparent !important;
-    cursor: default !important;
-  }
+  .no-print, .no-print-input select, button { display: none !important; }
   body { background: white; }
   .page { max-width: 100%; padding: 0; }
   .posting-table th { background: var(--impi-red) !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
