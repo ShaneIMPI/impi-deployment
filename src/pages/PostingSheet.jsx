@@ -191,88 +191,6 @@ export default function PostingSheet() {
   const [addForm, setAddForm] = useState({ officer_type_name: '', posting_location: '', qty: 1 })
   const [addSaving, setAddSaving] = useState(false)
 
-  const [showAddSection, setShowAddSection] = useState(false)
-  const [sectionForm, setSectionForm] = useState({ section_text: '', insertAfter: 'END' })
-  const [sectionSaving, setSectionSaving] = useState(false)
-
-  // List of existing sections, in order, for the "insert after" dropdown.
-  const sectionOptions = useMemo(() => {
-    const opts = []
-    for (const slot of slots) {
-      const li = lineItemsById[slot.line_item_id]
-      if (li && li.row_type === 'SECTION HEADER') {
-        opts.push({ id: li.id, label: li.section_text })
-      }
-    }
-    return opts
-  }, [slots, lineItemsById])
-
-  async function addSection() {
-    if (isViewer) return
-    const sectionText = sectionForm.section_text.trim()
-    if (!sectionText) return
-    setSectionSaving(true)
-
-    const insertAfter =
-      sectionForm.insertAfter === 'END'
-        ? slots.reduce((max, s) => Math.max(max, s.sort_order), 0)
-        : sectionEndSortOrder[sectionForm.insertAfter]
-
-    // Make room for the one new header row.
-    const toShift = slots.filter((s) => s.sort_order > insertAfter)
-    const concurrency = 20
-    for (let i = 0; i < toShift.length; i += concurrency) {
-      const chunk = toShift.slice(i, i + concurrency)
-      await Promise.all(
-        chunk.map((s) =>
-          supabase.from('posting_slots').update({ sort_order: s.sort_order + 1 }).eq('id', s.id)
-        )
-      )
-    }
-
-    const { data: newLineItem, error: liError } = await supabase
-      .from('quote_line_items')
-      .insert({
-        event_id: eventId,
-        row_type: 'SECTION HEADER',
-        sort_order: insertAfter,
-        section_text: sectionText,
-        page_break_before: true,
-      })
-      .select()
-      .single()
-    if (liError) {
-      alert('Could not add day/shift: ' + liError.message)
-      setSectionSaving(false)
-      return
-    }
-
-    const { error: slotError } = await supabase.from('posting_slots').insert({
-      event_id: eventId,
-      line_item_id: newLineItem.id,
-      slot_index: null,
-      sort_order: insertAfter + 1,
-      status: 'vacant',
-    })
-    if (slotError) {
-      alert('Could not add day/shift: ' + slotError.message)
-      setSectionSaving(false)
-      return
-    }
-
-    setShowAddSection(false)
-    setSectionForm({ section_text: '', insertAfter: 'END' })
-    setSectionSaving(false)
-    load()
-  }
-
-  async function toggleCompleted() {
-    if (isViewer) return
-    const next = event.status === 'completed' ? 'draft' : 'completed'
-    const { error } = await supabase.from('events').update({ status: next }).eq('id', eventId)
-    if (!error) setEvent((prev) => ({ ...prev, status: next }))
-  }
-
   async function addPosting() {
     if (isViewer || !addingToHeaderId) return
     const officerTypeName = addForm.officer_type_name.trim()
@@ -447,17 +365,6 @@ export default function PostingSheet() {
         </label>
         {!isViewer && !editingDetails && (
           <button onClick={startEditDetails}>Edit Event Details</button>
-        )}
-        {!isViewer && (
-          <button onClick={() => setShowAddSection(true)}>+ Add New Day / Shift</button>
-        )}
-        {!isViewer && (
-          <button className={event.status === 'completed' ? '' : 'btn-primary'} onClick={toggleCompleted}>
-            {event.status === 'completed' ? 'Reopen Event' : 'Mark as Completed'}
-          </button>
-        )}
-        {event.status === 'completed' && (
-          <span className="completed-badge">✓ Completed</span>
         )}
         {isViewer && <span className="viewer-badge">View-only access</span>}
         {!isOnline && (
@@ -761,7 +668,7 @@ export default function PostingSheet() {
                       })
                     ) : (
                       <button
-                        className="no-print time-edit-btn"
+                        className="time-edit-btn"
                         title="Click to correct this time"
                         onClick={() => setEditingTime({ slotId: slot.id, field: 'time_in' })}
                       >
@@ -803,7 +710,7 @@ export default function PostingSheet() {
                       })
                     ) : (
                       <button
-                        className="no-print time-edit-btn"
+                        className="time-edit-btn"
                         title="Click to correct this time"
                         onClick={() => setEditingTime({ slotId: slot.id, field: 'time_out' })}
                       >
@@ -902,57 +809,6 @@ export default function PostingSheet() {
                 onClick={() => {
                   setAddingToHeaderId(null)
                   setAddForm({ officer_type_name: '', posting_location: '', qty: 1 })
-                }}
-              >
-                Cancel
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {showAddSection && (
-        <div className="signature-overlay">
-          <div className="signature-modal">
-            <h3>Add New Day / Shift</h3>
-            <p>
-              Creates a new section heading (e.g. for coverage the client added after
-              the original quotation). Add postings to it afterward using its own "+
-              Add Posting" button.
-            </p>
-            <div className="inline-form" style={{ flexDirection: 'column' }}>
-              <input
-                placeholder='Section heading (e.g. "BUILD-UP: Thursday, 14 August 2026 - Night Shift (19h00 - 07h00)")'
-                value={sectionForm.section_text}
-                onChange={(e) => setSectionForm({ ...sectionForm, section_text: e.target.value })}
-              />
-              <label className="section-break-toggle" style={{ flexDirection: 'column', alignItems: 'flex-start' }}>
-                Insert after
-                <select
-                  value={sectionForm.insertAfter}
-                  onChange={(e) => setSectionForm({ ...sectionForm, insertAfter: e.target.value })}
-                >
-                  <option value="END">The very end of the sheet</option>
-                  {sectionOptions.map((opt) => (
-                    <option key={opt.id} value={opt.id}>
-                      {opt.label}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            </div>
-            <div className="signature-actions">
-              <button
-                className="btn-primary"
-                onClick={addSection}
-                disabled={!sectionForm.section_text.trim() || sectionSaving}
-              >
-                {sectionSaving ? 'Adding…' : 'Add Day / Shift'}
-              </button>
-              <button
-                onClick={() => {
-                  setShowAddSection(false)
-                  setSectionForm({ section_text: '', insertAfter: 'END' })
                 }}
               >
                 Cancel
