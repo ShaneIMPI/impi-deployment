@@ -216,6 +216,8 @@ export default function PostingSheet() {
     const insertAfter =
       sectionForm.insertAfter === 'END'
         ? slots.reduce((max, s) => Math.max(max, s.sort_order), 0)
+        : sectionForm.insertAfter === 'BEGINNING'
+        ? slots.reduce((min, s) => Math.min(min, s.sort_order), 0) - 1
         : sectionEndSortOrder[sectionForm.insertAfter]
 
     // Make room for the one new header row.
@@ -916,9 +918,9 @@ export default function PostingSheet() {
           <div className="signature-modal">
             <h3>Add New Day / Shift</h3>
             <p>
-              Creates a new section heading (e.g. for coverage the client added after
-              the original quotation). Add postings to it afterward using its own "+
-              Add Posting" button.
+              Creates a new section heading anywhere on the sheet — beginning, middle,
+              or end (e.g. a shift the client added before your original postings).
+              Add postings to it afterward using its own "+ Add Posting" button.
             </p>
             <div className="inline-form" style={{ flexDirection: 'column' }}>
               <input
@@ -927,17 +929,18 @@ export default function PostingSheet() {
                 onChange={(e) => setSectionForm({ ...sectionForm, section_text: e.target.value })}
               />
               <label className="section-break-toggle" style={{ flexDirection: 'column', alignItems: 'flex-start' }}>
-                Insert after
+                Where should this go?
                 <select
                   value={sectionForm.insertAfter}
                   onChange={(e) => setSectionForm({ ...sectionForm, insertAfter: e.target.value })}
                 >
-                  <option value="END">The very end of the sheet</option>
+                  <option value="BEGINNING">Beginning of the sheet (before everything)</option>
                   {sectionOptions.map((opt) => (
                     <option key={opt.id} value={opt.id}>
-                      {opt.label}
+                      After: {opt.label}
                     </option>
                   ))}
+                  <option value="END">The very end of the sheet</option>
                 </select>
               </label>
             </div>
