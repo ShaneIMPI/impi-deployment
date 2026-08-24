@@ -191,6 +191,24 @@ input, select { padding: 6px; }
   font-size: 12px;
   font-weight: 600;
 }
+.completed-badge {
+  background: #d4edda;
+  color: #1e6b2f;
+  border: 1px solid #a3d9ae;
+  border-radius: 4px;
+  padding: 3px 10px;
+  font-size: 12px;
+  font-weight: 700;
+}
+.active-badge {
+  background: #eee;
+  color: #555;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  padding: 3px 10px;
+  font-size: 12px;
+  font-weight: 600;
+}
 .offline-badge {
   background: #fff3cd;
   color: #7a5c00;
