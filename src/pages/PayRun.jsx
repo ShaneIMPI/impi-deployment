@@ -45,11 +45,21 @@ export default function PayRun() {
     return m
   }, [lineItems])
 
-  const typesByName = useMemo(() => {
+  const typesByNameAndRegion = useMemo(() => {
     const m = {}
-    types.forEach((t) => (m[t.type_name] = t))
+    types.forEach((t) => {
+      if (!m[t.type_name]) m[t.type_name] = {}
+      m[t.type_name][t.region || ''] = t
+    })
     return m
   }, [types])
+
+  function resolveOfficerType(typeName) {
+    const variants = typesByNameAndRegion[typeName]
+    if (!variants) return undefined
+    const eventRegion = event?.region || ''
+    return variants[eventRegion] || variants[''] || Object.values(variants)[0]
+  }
 
   function exportCsv() {
     const rows = [['No.', 'Name & Surname', 'ID Number', 'PSIRA No.', 'BIB No.', 'Posting', 'Pay Rate', 'Shifts', 'Amount', 'Confirmed']]
@@ -64,7 +74,7 @@ export default function PayRun() {
       }
       if (slot.include_in_payrun === false) return
       counter += 1
-      const officerType = typesByName[lineItem.officer_type_name]
+      const officerType = resolveOfficerType(lineItem.officer_type_name)
       const view = deriveSlotView(slot, lineItem, officerType)
       total += view.payAmount
       rows.push([
@@ -116,6 +126,11 @@ export default function PayRun() {
         <div>
           <strong>OVERVIEW DATE:</strong> {event.event_date}
         </div>
+        {event.region && (
+          <div>
+            <strong>REGION:</strong> {event.region}
+          </div>
+        )}
       </div>
 
       <table className="posting-table">
@@ -150,7 +165,7 @@ export default function PayRun() {
             if (slot.include_in_payrun === false) return null
 
             counter += 1
-            const officerType = typesByName[lineItem.officer_type_name]
+            const officerType = resolveOfficerType(lineItem.officer_type_name)
             const view = deriveSlotView(slot, lineItem, officerType)
             total += view.payAmount
 

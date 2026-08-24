@@ -3,6 +3,7 @@ import { useParams, Link } from 'react-router-dom'
 import { supabase } from '../supabaseClient'
 import { deriveSlotView } from '../lib/postingLogic'
 import { getIsViewer } from '../lib/roles'
+import { REGIONS } from '../lib/regions'
 import {
   queueSlotUpdate,
   getQueueCount,
@@ -108,11 +109,21 @@ export default function PostingSheet() {
     return m
   }, [lineItems])
 
-  const typesByName = useMemo(() => {
+  const typesByNameAndRegion = useMemo(() => {
     const m = {}
-    types.forEach((t) => (m[t.type_name] = t))
+    types.forEach((t) => {
+      if (!m[t.type_name]) m[t.type_name] = {}
+      m[t.type_name][t.region || ''] = t
+    })
     return m
   }, [types])
+
+  function resolveOfficerType(typeName) {
+    const variants = typesByNameAndRegion[typeName]
+    if (!variants) return undefined
+    const eventRegion = event?.region || ''
+    return variants[eventRegion] || variants[''] || Object.values(variants)[0]
+  }
 
   // For each SECTION HEADER's line item id, the sort_order of the last
   // slot currently in that section — new postings get inserted right
@@ -289,6 +300,7 @@ export default function PostingSheet() {
     venue: '',
     event_date: '',
     timing: '',
+    region: '',
   })
 
   function startEditDetails() {
@@ -297,6 +309,7 @@ export default function PostingSheet() {
       venue: event.venue || '',
       event_date: event.event_date || '',
       timing: event.timing || '',
+      region: event.region || '',
     })
     setEditingDetails(true)
   }
@@ -386,6 +399,17 @@ export default function PostingSheet() {
             value={detailsForm.timing}
             onChange={(e) => setDetailsForm({ ...detailsForm, timing: e.target.value })}
           />
+          <select
+            value={detailsForm.region}
+            onChange={(e) => setDetailsForm({ ...detailsForm, region: e.target.value })}
+          >
+            <option value="">— No Region Set —</option>
+            {REGIONS.map((r) => (
+              <option key={r} value={r}>
+                {r}
+              </option>
+            ))}
+          </select>
           <button className="btn-primary" onClick={saveDetails}>
             Save
           </button>
@@ -405,6 +429,11 @@ export default function PostingSheet() {
           <div>
             <strong>TIMING:</strong> {event.timing}
           </div>
+          {event.region && (
+            <div>
+              <strong>REGION:</strong> {event.region}
+            </div>
+          )}
           <div>
             <strong>SIGNED:</strong> {signedCount} of {totalPostings}
           </div>
@@ -475,7 +504,7 @@ export default function PostingSheet() {
             }
 
             postingCounter += 1
-            const officerType = typesByName[lineItem.officer_type_name]
+            const officerType = resolveOfficerType(lineItem.officer_type_name)
             const view = deriveSlotView(slot, lineItem, officerType)
             const unmapped = !officerType
             const isManagerRow = /manager|reaction|safety/i.test(lineItem.officer_type_name || '')

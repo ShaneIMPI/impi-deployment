@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../supabaseClient'
 import { getIsViewer } from '../lib/roles'
+import { REGIONS } from '../lib/regions'
 import Header from '../components/Header'
 import ImportOfficersModal from '../components/ImportOfficersModal'
 
@@ -12,6 +13,14 @@ const emptyOfficer = {
   special_events: false,
 }
 
+const emptyRate = {
+  type_name: '',
+  region: '',
+  psira_grade: '',
+  sell_price: '',
+  pay_rate: '',
+}
+
 export default function OfficerRoster() {
   const [officers, setOfficers] = useState([])
   const [types, setTypes] = useState([])
@@ -21,6 +30,8 @@ export default function OfficerRoster() {
   const [isViewer, setIsViewer] = useState(false)
   const [showImport, setShowImport] = useState(false)
   const [saveError, setSaveError] = useState('')
+  const [rateForm, setRateForm] = useState(emptyRate)
+  const [rateError, setRateError] = useState('')
 
   useEffect(() => {
     loadOfficers()
@@ -41,6 +52,7 @@ export default function OfficerRoster() {
       .from('officer_types')
       .select('*')
       .order('type_name', { ascending: true })
+      .order('region', { ascending: true })
     setTypes(data || [])
   }
 
@@ -108,11 +120,39 @@ export default function OfficerRoster() {
       .from('officer_types')
       .update({
         psira_grade: t.psira_grade,
+        region: t.region || null,
         sell_price: Number(t.sell_price) || 0,
         pay_rate: Number(t.pay_rate) || 0,
       })
       .eq('id', t.id)
   }
+
+  async function removeType(id) {
+    if (!confirm('Remove this rate card entry?')) return
+    await supabase.from('officer_types').delete().eq('id', id)
+    loadTypes()
+  }
+
+  async function addRate(e) {
+    e.preventDefault()
+    if (!rateForm.type_name.trim()) return
+    setRateError('')
+    const { error } = await supabase.from('officer_types').insert({
+      type_name: rateForm.type_name.trim(),
+      region: rateForm.region || null,
+      psira_grade: rateForm.psira_grade,
+      sell_price: Number(rateForm.sell_price) || 0,
+      pay_rate: Number(rateForm.pay_rate) || 0,
+    })
+    if (error) {
+      setRateError(error.message)
+      return
+    }
+    setRateForm(emptyRate)
+    loadTypes()
+  }
+
+  const existingTypeNames = [...new Set(types.map((t) => t.type_name))]
 
   return (
     <div className="page">
@@ -224,12 +264,67 @@ export default function OfficerRoster() {
         <>
           <p>
             This is the single master rate card used everywhere — the Posting
-            Sheet, Special Events check, and Pay Run all pull from here.
+            Sheet, Special Events check, and Pay Run all pull from here. Set a{' '}
+            <strong>Region</strong> on a rate to make it apply only to events tagged with
+            that region (edit an event's details on its Posting Sheet to set its Region).
+            Leave Region blank for a rate that applies everywhere unless a
+            region-specific one exists for that same role.
           </p>
+
+          {rateError && <p className="error-text">Save failed: {rateError}</p>}
+
+          {!isViewer && (
+            <form onSubmit={addRate} className="inline-form">
+              <input
+                list="rate-type-options"
+                placeholder="Officer Type (e.g. Event Security Officer Gr C)"
+                value={rateForm.type_name}
+                onChange={(e) => setRateForm({ ...rateForm, type_name: e.target.value })}
+              />
+              <datalist id="rate-type-options">
+                {existingTypeNames.map((name) => (
+                  <option key={name} value={name} />
+                ))}
+              </datalist>
+              <select
+                value={rateForm.region}
+                onChange={(e) => setRateForm({ ...rateForm, region: e.target.value })}
+              >
+                <option value="">All Regions (Default)</option>
+                {REGIONS.map((r) => (
+                  <option key={r} value={r}>
+                    {r}
+                  </option>
+                ))}
+              </select>
+              <input
+                placeholder="PSIRA Grade"
+                value={rateForm.psira_grade}
+                onChange={(e) => setRateForm({ ...rateForm, psira_grade: e.target.value })}
+              />
+              <input
+                type="number"
+                placeholder="Sell Price"
+                value={rateForm.sell_price}
+                onChange={(e) => setRateForm({ ...rateForm, sell_price: e.target.value })}
+              />
+              <input
+                type="number"
+                placeholder="Pay Rate"
+                value={rateForm.pay_rate}
+                onChange={(e) => setRateForm({ ...rateForm, pay_rate: e.target.value })}
+              />
+              <button type="submit" className="btn-primary">
+                Add Rate
+              </button>
+            </form>
+          )}
+
           <table className="simple-table">
             <thead>
               <tr>
                 <th>Officer Type</th>
+                <th>Region</th>
                 <th>PSIRA Grade</th>
                 <th>Sell Price (per shift)</th>
                 <th>Pay Rate (per shift)</th>
@@ -240,6 +335,20 @@ export default function OfficerRoster() {
               {types.map((t) => (
                 <tr key={t.id}>
                   <td>{t.type_name}</td>
+                  <td>
+                    <select
+                      value={t.region || ''}
+                      disabled={isViewer}
+                      onChange={(e) => updateType(t.id, 'region', e.target.value)}
+                    >
+                      <option value="">All Regions (Default)</option>
+                      {REGIONS.map((r) => (
+                        <option key={r} value={r}>
+                          {r}
+                        </option>
+                      ))}
+                    </select>
+                  </td>
                   <td>
                     <input
                       value={t.psira_grade || ''}
@@ -264,8 +373,11 @@ export default function OfficerRoster() {
                     />
                   </td>
                   {!isViewer && (
-                    <td>
+                    <td className="row-actions">
                       <button onClick={() => saveType(t)}>Save</button>
+                      <a onClick={() => removeType(t.id)} style={{ cursor: 'pointer' }}>
+                        Remove
+                      </a>
                     </td>
                   )}
                 </tr>
