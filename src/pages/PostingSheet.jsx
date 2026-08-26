@@ -649,7 +649,6 @@ export default function PostingSheet() {
             const officerType = resolveOfficerType(lineItem.officer_type_name)
             const view = deriveSlotView(slot, lineItem, officerType)
             const unmapped = !officerType
-            const isManagerRow = /manager|reaction|safety/i.test(lineItem.officer_type_name || '')
 
             return (
               <tr key={slot.id}>
@@ -707,7 +706,7 @@ export default function PostingSheet() {
                   />
                 </td>
                 <td className={unmapped ? 'warning-cell' : ''}>
-                  {isManagerRow && slot.include_in_payrun === false ? 'IMPI - ' : ''}
+                  {slot.include_in_payrun === false ? 'IMPI - ' : ''}
                   {view.posting}
                   {unmapped && (
                     <span title="This Officer Type isn't in the rate card yet — set it up on the Officer Roster page.">
@@ -715,10 +714,10 @@ export default function PostingSheet() {
                       ⚠
                     </span>
                   )}
-                  {isManagerRow && !isViewer && (
+                  {!isViewer && (
                     <label
                       className="no-print manager-payrun-toggle"
-                      title="Tick IMPI for your own staff — shown with an IMPI prefix and excluded from this Pay Run. Untick when this posting is filled by a supplier — they'll be included in the Pay Run instead."
+                      title="Tick IMPI when this posting is filled by your own office staff instead of the quoted supplier — shown with an IMPI prefix and excluded from this Pay Run. Untick once it's back to a supplier — they'll be included in the Pay Run instead."
                     >
                       <input
                         type="checkbox"
@@ -730,7 +729,7 @@ export default function PostingSheet() {
                       IMPI
                     </label>
                   )}
-                  {isManagerRow && slot.include_in_payrun === false && (
+                  {slot.include_in_payrun === false && (
                     <span className="no-print mp-badge" title="Excluded from Pay Run">
                       IMPI
                     </span>
