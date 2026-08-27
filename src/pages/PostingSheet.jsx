@@ -125,6 +125,15 @@ export default function PostingSheet() {
     return variants[eventRegion] || variants[''] || Object.values(variants)[0]
   }
 
+  // Every distinct rate-card role name, for the per-posting "Type
+  // Override" dropdown — lets a single posting be paid/priced against a
+  // different role than the section's default (e.g. an officer without
+  // Special Events quals filling a Special Events posting).
+  const uniqueTypeNames = useMemo(() => {
+    const set = new Set(types.map((t) => t.type_name).filter(Boolean))
+    return Array.from(set).sort((a, b) => a.localeCompare(b))
+  }, [types])
+
   // For each SECTION HEADER's line item id, the sort_order of the last
   // slot currently in that section — new postings get inserted right
   // after this point, and everything after it shifts down to make room.
@@ -646,9 +655,11 @@ export default function PostingSheet() {
             }
 
             postingCounter += 1
-            const officerType = resolveOfficerType(lineItem.officer_type_name)
-            const view = deriveSlotView(slot, lineItem, officerType)
+            const effectiveTypeName = slot.officer_type_override || lineItem.officer_type_name
+            const officerType = resolveOfficerType(effectiveTypeName)
+            const view = deriveSlotView(slot, lineItem, officerType, effectiveTypeName)
             const unmapped = !officerType
+            const isOverridden = !!slot.officer_type_override
 
             return (
               <tr key={slot.id}>
@@ -732,6 +743,35 @@ export default function PostingSheet() {
                   {slot.include_in_payrun === false && (
                     <span className="no-print mp-badge" title="Excluded from Pay Run">
                       IMPI
+                    </span>
+                  )}
+                  {!isViewer && (
+                    <select
+                      className="no-print type-override-select"
+                      value={slot.officer_type_override || ''}
+                      onChange={(e) =>
+                        updateSlot(slot.id, {
+                          officer_type_override: e.target.value || null,
+                        })
+                      }
+                      title="Pay/price this specific posting against a different rate-card role — e.g. this officer doesn't have Special Events quals, or is on a different rate. Leave on the default to use the section's normal type."
+                    >
+                      <option value="">
+                        Default: {lineItem.officer_type_name}
+                      </option>
+                      {uniqueTypeNames.map((name) => (
+                        <option key={name} value={name}>
+                          {name}
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                  {isOverridden && (
+                    <span
+                      className="no-print mp-badge type-override-badge"
+                      title={`Paid/priced as "${slot.officer_type_override}" instead of the section default`}
+                    >
+                      TYPE OVERRIDE
                     </span>
                   )}
                   {!isViewer && (
