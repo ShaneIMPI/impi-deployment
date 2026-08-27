@@ -44,10 +44,20 @@ export function expandLineItemsToSlots(lineItems) {
 // Given the joined data for one posting slot (slot row + its line item +
 // its matched officer type), returns everything needed to render either
 // the Posting Sheet row or the Pay Run row.
-export function deriveSlotView(slot, lineItem, officerType) {
+//
+// `effectiveTypeName` is optional. Pass it when the slot has an
+// `officer_type_override` (e.g. an officer working this posting doesn't
+// have Special Events quals, or is being paid off a different rate-card
+// role than the section's default) — the caller resolves the actual
+// `officerType` row against this name, and this function uses it for the
+// displayed posting text so the sheet and Pay Run both show what the
+// officer is actually being posted/paid as. Falls back to the line
+// item's default `officer_type_name` when not overridden.
+export function deriveSlotView(slot, lineItem, officerType, effectiveTypeName) {
   const grade = officerType?.psira_grade || 'N/A'
+  const typeName = effectiveTypeName || lineItem?.officer_type_name
   const posting = finalPostingText(
-    lineItem?.officer_type_name,
+    typeName,
     grade,
     lineItem?.posting_location
   )
@@ -56,6 +66,7 @@ export function deriveSlotView(slot, lineItem, officerType) {
   const shifts = lineItem?.shifts ?? 1
   return {
     posting,
+    typeName,
     grade,
     payRate,
     sellPrice,
