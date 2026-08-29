@@ -74,8 +74,9 @@ export default function PayRun() {
       }
       if (slot.include_in_payrun === false) return
       counter += 1
-      const officerType = resolveOfficerType(lineItem.officer_type_name)
-      const view = deriveSlotView(slot, lineItem, officerType)
+      const effectiveTypeName = slot.officer_type_override || lineItem.officer_type_name
+      const officerType = resolveOfficerType(effectiveTypeName)
+      const view = deriveSlotView(slot, lineItem, officerType, effectiveTypeName)
       total += view.payAmount
       rows.push([
         counter,
@@ -165,8 +166,9 @@ export default function PayRun() {
             if (slot.include_in_payrun === false) return null
 
             counter += 1
-            const officerType = resolveOfficerType(lineItem.officer_type_name)
-            const view = deriveSlotView(slot, lineItem, officerType)
+            const effectiveTypeName = slot.officer_type_override || lineItem.officer_type_name
+            const officerType = resolveOfficerType(effectiveTypeName)
+            const view = deriveSlotView(slot, lineItem, officerType, effectiveTypeName)
             total += view.payAmount
 
             return (
