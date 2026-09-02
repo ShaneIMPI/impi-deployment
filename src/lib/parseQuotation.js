@@ -20,11 +20,38 @@ function sheetToRows(sheet) {
   return XLSX.utils.sheet_to_json(sheet, { header: 1, defval: null, raw: true })
 }
 
+const WEEKDAYS = [
+  'Sunday',
+  'Monday',
+  'Tuesday',
+  'Wednesday',
+  'Thursday',
+  'Friday',
+  'Saturday',
+]
+const MONTHS = [
+  'January',
+  'February',
+  'March',
+  'April',
+  'May',
+  'June',
+  'July',
+  'August',
+  'September',
+  'October',
+  'November',
+  'December',
+]
+
 function fmtTime(val) {
   if (val === null || val === undefined || val === '') return ''
   if (val instanceof Date) {
-    const h = String(val.getHours()).padStart(2, '0')
-    const m = String(val.getMinutes()).padStart(2, '0')
+    // Excel gives us a UTC-based Date for time cells — read UTC hours/
+    // minutes, not local, so the displayed time never shifts depending
+    // on the viewer's timezone.
+    const h = String(val.getUTCHours()).padStart(2, '0')
+    const m = String(val.getUTCMinutes()).padStart(2, '0')
     return `${h}h${m}`
   }
   if (typeof val === 'number') {
@@ -41,23 +68,25 @@ function fmtDateLong(val) {
   if (!val) return ''
   const d = val instanceof Date ? val : new Date(val)
   if (isNaN(d)) return String(val)
-  return d.toLocaleDateString('en-ZA', {
-    weekday: 'long',
-    day: '2-digit',
-    month: 'long',
-    year: 'numeric',
-  })
+  // Excel gives us a UTC-midnight Date for date cells — read UTC date
+  // parts, not local, so the calendar day never shifts depending on the
+  // viewer's timezone (this was the cause of dates appearing a day early
+  // for anyone whose browser/system clock isn't set to SAST).
+  const weekday = WEEKDAYS[d.getUTCDay()]
+  const day = String(d.getUTCDate()).padStart(2, '0')
+  const month = MONTHS[d.getUTCMonth()]
+  const year = d.getUTCFullYear()
+  return `${weekday}, ${day} ${month} ${year}`
 }
 
 function fmtDateShort(val) {
   if (!val) return ''
   const d = val instanceof Date ? val : new Date(val)
   if (isNaN(d)) return String(val)
-  return d.toLocaleDateString('en-ZA', {
-    day: '2-digit',
-    month: 'long',
-    year: 'numeric',
-  })
+  const day = String(d.getUTCDate()).padStart(2, '0')
+  const month = MONTHS[d.getUTCMonth()]
+  const year = d.getUTCFullYear()
+  return `${day} ${month} ${year}`
 }
 
 // Build a header-name -> column-index map from the Builder sheet's header row
@@ -80,14 +109,15 @@ export function parseSetupSheet(workbook) {
   const lookup = {}
   rows.forEach((r) => {
     if (!r) return
-    const label = r[1]
-    const value = r[2]
+    const label = r[0]
+    const value = r[1]
     if (label) lookup[String(label).trim()] = value
   })
+  const rawEventDate = lookup['Event Date (overview)'] || lookup['Overview Date'] || ''
   return {
     eventName: lookup['Reference Number / Event Name'] || lookup['Event Name'] || '',
     venue: lookup['Venue'] || '',
-    eventDate: lookup['Event Date (overview)'] || lookup['Overview Date'] || '',
+    eventDate: rawEventDate instanceof Date ? fmtDateShort(rawEventDate) : rawEventDate,
     timing: lookup['Timing (overview)'] || '',
     quotationRef: lookup['Quotation Number'] || '',
   }
