@@ -64,29 +64,65 @@ function fmtTime(val) {
   return String(val).trim()
 }
 
+// Extracts {year, month (0-indexed), day} without ever constructing a
+// Date object in a way that depends on the viewer's local timezone —
+// true Excel date cells use their UTC parts directly; plain text dates
+// are matched with explicit patterns instead of the ambiguous native
+// `new Date(string)` parser, which silently assumes local time for
+// non-ISO strings and would otherwise reintroduce this exact bug for
+// anyone travelling outside South Africa.
+function toDateParts(val) {
+  if (val instanceof Date) {
+    return { year: val.getUTCFullYear(), month: val.getUTCMonth(), day: val.getUTCDate() }
+  }
+  const str = String(val).trim()
+
+  // ISO: YYYY-MM-DD (optionally with a time/T suffix)
+  let m = str.match(/^(\d{4})-(\d{2})-(\d{2})/)
+  if (m) return { year: Number(m[1]), month: Number(m[2]) - 1, day: Number(m[3]) }
+
+  // "5 September 2026" / "05 September 2026"
+  m = str.match(/^(\d{1,2})\s+([A-Za-z]+)\s+(\d{4})/)
+  if (m) {
+    const monthIdx = MONTHS.findIndex((mo) => mo.toLowerCase() === m[2].toLowerCase())
+    if (monthIdx >= 0) return { year: Number(m[3]), month: monthIdx, day: Number(m[1]) }
+  }
+
+  // "September 5, 2026" / "September 5 2026"
+  m = str.match(/^([A-Za-z]+)\s+(\d{1,2}),?\s+(\d{4})/)
+  if (m) {
+    const monthIdx = MONTHS.findIndex((mo) => mo.toLowerCase() === m[1].toLowerCase())
+    if (monthIdx >= 0) return { year: Number(m[3]), month: monthIdx, day: Number(m[2]) }
+  }
+
+  // DD/MM/YYYY
+  m = str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/)
+  if (m) return { year: Number(m[3]), month: Number(m[2]) - 1, day: Number(m[1]) }
+
+  // Last resort for anything unrecognised — native parsing (may be
+  // timezone-sensitive, but only reached for formats we don't handle).
+  const d = new Date(str)
+  if (!isNaN(d)) return { year: d.getFullYear(), month: d.getMonth(), day: d.getDate() }
+  return null
+}
+
 function fmtDateLong(val) {
   if (!val) return ''
-  const d = val instanceof Date ? val : new Date(val)
-  if (isNaN(d)) return String(val)
-  // Excel gives us a UTC-midnight Date for date cells — read UTC date
-  // parts, not local, so the calendar day never shifts depending on the
-  // viewer's timezone (this was the cause of dates appearing a day early
-  // for anyone whose browser/system clock isn't set to SAST).
-  const weekday = WEEKDAYS[d.getUTCDay()]
-  const day = String(d.getUTCDate()).padStart(2, '0')
-  const month = MONTHS[d.getUTCMonth()]
-  const year = d.getUTCFullYear()
-  return `${weekday}, ${day} ${month} ${year}`
+  const parts = toDateParts(val)
+  if (!parts) return String(val)
+  const weekday = WEEKDAYS[new Date(Date.UTC(parts.year, parts.month, parts.day)).getUTCDay()]
+  const day = String(parts.day).padStart(2, '0')
+  const month = MONTHS[parts.month]
+  return `${weekday}, ${day} ${month} ${parts.year}`
 }
 
 function fmtDateShort(val) {
   if (!val) return ''
-  const d = val instanceof Date ? val : new Date(val)
-  if (isNaN(d)) return String(val)
-  const day = String(d.getUTCDate()).padStart(2, '0')
-  const month = MONTHS[d.getUTCMonth()]
-  const year = d.getUTCFullYear()
-  return `${day} ${month} ${year}`
+  const parts = toDateParts(val)
+  if (!parts) return String(val)
+  const day = String(parts.day).padStart(2, '0')
+  const month = MONTHS[parts.month]
+  return `${day} ${month} ${parts.year}`
 }
 
 // Build a header-name -> column-index map from the Builder sheet's header row
