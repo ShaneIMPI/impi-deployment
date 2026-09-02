@@ -1,35 +1,9 @@
-
-/
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-Parsequotation · JS
 import * as XLSX from 'xlsx'
- 
+
 // Reads the uploaded Quotation .xlsx (Setup + Builder sheets) and returns
 // structured event details + line items ready to insert into Supabase.
 // This is the single point of truth — no PDF parsing, no retyping.
- 
+
 function findSheet(workbook, wantedName) {
   const exact = workbook.SheetNames.find(
     (n) => n.toLowerCase() === wantedName.toLowerCase()
@@ -40,12 +14,12 @@ function findSheet(workbook, wantedName) {
   )
   return partial ? workbook.Sheets[partial] : null
 }
- 
+
 function sheetToRows(sheet) {
   // header:1 -> array-of-arrays, keeps blank cells as undefined
   return XLSX.utils.sheet_to_json(sheet, { header: 1, defval: null, raw: true })
 }
- 
+
 // Excel's day-0 epoch (in the standard, non-1904 date system) is
 // 30 Dec 1899, expressed here as an absolute UTC instant. Using the
 // single-argument Date(ms) constructor (never year/month/day args, and
@@ -60,13 +34,13 @@ function sheetToRows(sheet) {
 // was shifting dates by a day and times by a handful of minutes for
 // anyone outside South Africa.
 const EXCEL_EPOCH_UTC_MS = Date.UTC(1899, 11, 30)
- 
+
 function excelSerialToTimeParts(serial) {
   const dayFraction = serial - Math.floor(serial)
   const totalMinutes = Math.round(dayFraction * 24 * 60)
   return { hours: Math.floor(totalMinutes / 60) % 24, minutes: totalMinutes % 60 }
 }
- 
+
 function excelSerialToUTCParts(serial) {
   const ms = EXCEL_EPOCH_UTC_MS + Math.round(serial * 86400000)
   const d = new Date(ms)
@@ -78,7 +52,7 @@ function excelSerialToUTCParts(serial) {
     minutes: d.getUTCMinutes(),
   }
 }
- 
+
 const WEEKDAYS = [
   'Sunday',
   'Monday',
@@ -102,7 +76,7 @@ const MONTHS = [
   'November',
   'December',
 ]
- 
+
 function fmtTime(val) {
   if (val === null || val === undefined || val === '') return ''
   if (typeof val === 'number') {
@@ -121,7 +95,7 @@ function fmtTime(val) {
   }
   return String(val).trim()
 }
- 
+
 // Extracts {year, month (0-indexed), day}. Critically, this never trusts
 // a Date object handed to us by the xlsx library — testing showed the
 // library's own "cellDates" conversion builds those Date objects using
@@ -141,36 +115,36 @@ function toDateParts(val) {
     return { year: val.getUTCFullYear(), month: val.getUTCMonth(), day: val.getUTCDate() }
   }
   const str = String(val).trim()
- 
+
   // ISO: YYYY-MM-DD (optionally with a time/T suffix)
   let m = str.match(/^(\d{4})-(\d{2})-(\d{2})/)
   if (m) return { year: Number(m[1]), month: Number(m[2]) - 1, day: Number(m[3]) }
- 
+
   // "5 September 2026" / "05 September 2026"
   m = str.match(/^(\d{1,2})\s+([A-Za-z]+)\s+(\d{4})/)
   if (m) {
     const monthIdx = MONTHS.findIndex((mo) => mo.toLowerCase() === m[2].toLowerCase())
     if (monthIdx >= 0) return { year: Number(m[3]), month: monthIdx, day: Number(m[1]) }
   }
- 
+
   // "September 5, 2026" / "September 5 2026"
   m = str.match(/^([A-Za-z]+)\s+(\d{1,2}),?\s+(\d{4})/)
   if (m) {
     const monthIdx = MONTHS.findIndex((mo) => mo.toLowerCase() === m[1].toLowerCase())
     if (monthIdx >= 0) return { year: Number(m[3]), month: monthIdx, day: Number(m[2]) }
   }
- 
+
   // DD/MM/YYYY
   m = str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/)
   if (m) return { year: Number(m[3]), month: Number(m[2]) - 1, day: Number(m[1]) }
- 
+
   // Last resort for anything unrecognised — native parsing (may be
   // timezone-sensitive, but only reached for formats we don't handle).
   const d = new Date(str)
   if (!isNaN(d)) return { year: d.getFullYear(), month: d.getMonth(), day: d.getDate() }
   return null
 }
- 
+
 function fmtDateLong(val) {
   if (!val) return ''
   const parts = toDateParts(val)
@@ -180,7 +154,7 @@ function fmtDateLong(val) {
   const month = MONTHS[parts.month]
   return `${weekday}, ${day} ${month} ${parts.year}`
 }
- 
+
 function fmtDateShort(val) {
   if (!val) return ''
   const parts = toDateParts(val)
@@ -189,7 +163,7 @@ function fmtDateShort(val) {
   const month = MONTHS[parts.month]
   return `${day} ${month} ${parts.year}`
 }
- 
+
 // Build a header-name -> column-index map from the Builder sheet's header row
 function headerMap(rows) {
   // header row is the first row containing "Row Type"
@@ -202,7 +176,7 @@ function headerMap(rows) {
   })
   return { map, headerRowIdx }
 }
- 
+
 export function parseSetupSheet(workbook) {
   const sheet = findSheet(workbook, 'Setup')
   if (!sheet) return {}
@@ -224,7 +198,7 @@ export function parseSetupSheet(workbook) {
     quotationRef: lookup['Quotation Number'] || '',
   }
 }
- 
+
 // Returns { rowType, sortOrder, category, itemDate, shiftName, startTime,
 //           endTime, sectionText, qty, officerTypeName, postingLocation, shifts }[]
 export function parseBuilderSheet(workbook) {
@@ -235,10 +209,10 @@ export function parseBuilderSheet(workbook) {
       'Please recreate this quote using the standard IMPI template (download link below), then upload again.'
     )
   }
- 
+
   const rows = sheetToRows(sheet)
   const { map, headerRowIdx } = headerMap(rows)
- 
+
   const col = (name, fallbackNames = []) => {
     if (map[name] !== undefined) return map[name]
     for (const f of fallbackNames) {
@@ -246,7 +220,7 @@ export function parseBuilderSheet(workbook) {
     }
     return -1
   }
- 
+
   const cRowType = col('Row Type')
   const cCategory = col('Category')
   const cDate = col('Date')
@@ -257,7 +231,7 @@ export function parseBuilderSheet(workbook) {
   const cOfficerType = col('Officer Type')
   const cNotes = col('Notes / Posting Location', ['Notes'])
   const cShifts = col('Shifts / Units', ['Shifts'])
- 
+
   if (cRowType === -1) {
     throw new Error(
       "This file isn't built from the IMPI Builder template — the Builder sheet is missing " +
@@ -265,7 +239,7 @@ export function parseBuilderSheet(workbook) {
       'template (download link below), then upload again.'
     )
   }
- 
+
   const items = []
   let sortOrder = 0
   let lastCategory = ''
@@ -273,15 +247,15 @@ export function parseBuilderSheet(workbook) {
   let lastShift = ''
   let lastStart = ''
   let lastEnd = ''
- 
+
   for (let i = headerRowIdx + 1; i < rows.length; i++) {
     const r = rows[i]
     if (!r) continue
     const rowType = r[cRowType]
     if (rowType !== 'SECTION HEADER' && rowType !== 'LINE ITEM') continue
- 
+
     sortOrder += 1
- 
+
     if (rowType === 'SECTION HEADER') {
       lastCategory = r[cCategory] || ''
       lastDate = r[cDate] || null
@@ -324,7 +298,7 @@ export function parseBuilderSheet(workbook) {
       })
     }
   }
- 
+
   // Only keep personnel postings (Security & Cleaning) — equipment/service
   // lines like Fencing and JOC Compliance have no Officer Type in the
   // Builder sheet, so they're not part of the posting sheet. Also drop
@@ -338,7 +312,7 @@ export function parseBuilderSheet(workbook) {
       it.rowType !== 'LINE ITEM' ||
       (it.officerTypeName && !EXCLUDED_OFFICER_TYPE_PATTERN.test(it.officerTypeName))
   )
- 
+
   // Drop section headers that end up with no line items under them
   const finalItems = []
   for (let i = 0; i < withPersonnelOnly.length; i++) {
@@ -349,10 +323,10 @@ export function parseBuilderSheet(workbook) {
     }
     finalItems.push(item)
   }
- 
+
   return finalItems
 }
- 
+
 export async function parseQuotationFile(file) {
   const buf = await file.arrayBuffer()
   // cellDates is deliberately OFF — the xlsx library's own Date-object
@@ -366,16 +340,3 @@ export async function parseQuotationFile(file) {
   const lineItems = parseBuilderSheet(workbook)
   return { setup, lineItems }
 }
- 
-
-
-
-
-
-
-
-
-
-
-
-
