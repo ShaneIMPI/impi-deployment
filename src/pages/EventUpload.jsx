@@ -78,6 +78,7 @@ export default function EventUpload() {
           timing: setup.timing || '',
           quotation_ref: setup.quotationRef || '',
           status: 'draft',
+          region: 'Gauteng',
         })
         .select()
         .single()

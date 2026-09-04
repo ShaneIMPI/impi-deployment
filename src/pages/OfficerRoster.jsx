@@ -15,7 +15,7 @@ const emptyOfficer = {
 
 const emptyRate = {
   type_name: '',
-  region: '',
+  region: 'Gauteng',
   psira_grade: '',
   sell_price: '',
   pay_rate: '',
@@ -264,11 +264,12 @@ export default function OfficerRoster() {
         <>
           <p>
             This is the single master rate card used everywhere — the Posting
-            Sheet, Special Events check, and Pay Run all pull from here. Set a{' '}
-            <strong>Region</strong> on a rate to make it apply only to events tagged with
-            that region (edit an event's details on its Posting Sheet to set its Region).
-            Leave Region blank for a rate that applies everywhere unless a
-            region-specific one exists for that same role.
+            Sheet, Special Events check, and Pay Run all pull from here.{' '}
+            <strong>Gauteng is the default region</strong> — every event uses the
+            Gauteng rate unless its Region is explicitly set to Cape Town on its
+            Posting Sheet (Edit Event Details), or changed directly on its Pay Run
+            page. Only add a Cape Town row for a role once its price actually
+            differs there.
           </p>
 
           {rateError && <p className="error-text">Save failed: {rateError}</p>}
@@ -290,7 +291,7 @@ export default function OfficerRoster() {
                 value={rateForm.region}
                 onChange={(e) => setRateForm({ ...rateForm, region: e.target.value })}
               >
-                <option value="">All Regions (Default)</option>
+                <option value="">All Regions (fallback only)</option>
                 {REGIONS.map((r) => (
                   <option key={r} value={r}>
                     {r}
@@ -341,7 +342,7 @@ export default function OfficerRoster() {
                       disabled={isViewer}
                       onChange={(e) => updateType(t.id, 'region', e.target.value)}
                     >
-                      <option value="">All Regions (Default)</option>
+                      <option value="">All Regions (fallback only)</option>
                       {REGIONS.map((r) => (
                         <option key={r} value={r}>
                           {r}

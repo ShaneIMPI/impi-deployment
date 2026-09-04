@@ -121,8 +121,8 @@ export default function PostingSheet() {
   function resolveOfficerType(typeName) {
     const variants = typesByNameAndRegion[typeName]
     if (!variants) return undefined
-    const eventRegion = event?.region || ''
-    return variants[eventRegion] || variants[''] || Object.values(variants)[0]
+    const eventRegion = event?.region || 'Gauteng'
+    return variants[eventRegion] || variants['Gauteng'] || variants[''] || Object.values(variants)[0]
   }
 
   // Every distinct rate-card role name, for the per-posting "Type
@@ -440,7 +440,7 @@ export default function PostingSheet() {
       venue: event.venue || '',
       event_date: event.event_date || '',
       timing: event.timing || '',
-      region: event.region || '',
+      region: event.region || 'Gauteng',
     })
     setEditingDetails(true)
   }
@@ -545,7 +545,6 @@ export default function PostingSheet() {
             value={detailsForm.region}
             onChange={(e) => setDetailsForm({ ...detailsForm, region: e.target.value })}
           >
-            <option value="">— No Region Set —</option>
             {REGIONS.map((r) => (
               <option key={r} value={r}>
                 {r}

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { supabase } from '../supabaseClient'
 import { deriveSlotView } from '../lib/postingLogic'
+import { REGIONS } from '../lib/regions'
 import Header from '../components/Header'
 
 export default function PayRun() {
@@ -11,6 +12,9 @@ export default function PayRun() {
   const [slots, setSlots] = useState([])
   const [types, setTypes] = useState([])
   const [loading, setLoading] = useState(true)
+  const [savingRegion, setSavingRegion] = useState(false)
+  const [editingRateId, setEditingRateId] = useState(null)
+  const [rateSaving, setRateSaving] = useState(false)
 
   useEffect(() => {
     load()
@@ -57,8 +61,36 @@ export default function PayRun() {
   function resolveOfficerType(typeName) {
     const variants = typesByNameAndRegion[typeName]
     if (!variants) return undefined
-    const eventRegion = event?.region || ''
-    return variants[eventRegion] || variants[''] || Object.values(variants)[0]
+    const eventRegion = event?.region || 'Gauteng'
+    return variants[eventRegion] || variants['Gauteng'] || variants[''] || Object.values(variants)[0]
+  }
+
+  async function changeRegion(newRegion) {
+    setSavingRegion(true)
+    const { error } = await supabase.from('events').update({ region: newRegion }).eq('id', eventId)
+    if (!error) {
+      // Update local state directly — every rate on this page re-resolves
+      // immediately against the new region, no reload needed.
+      setEvent((prev) => ({ ...prev, region: newRegion }))
+    }
+    setSavingRegion(false)
+  }
+
+  async function saveRate(typeId, payRate) {
+    setRateSaving(true)
+    const { error } = await supabase
+      .from('officer_types')
+      .update({ pay_rate: Number(payRate) || 0 })
+      .eq('id', typeId)
+    if (!error) {
+      // Update local state directly so every row using this rate updates
+      // immediately, without reloading the page.
+      setTypes((prev) =>
+        prev.map((t) => (t.id === typeId ? { ...t, pay_rate: Number(payRate) || 0 } : t))
+      )
+      setEditingRateId(null)
+    }
+    setRateSaving(false)
   }
 
   function exportCsv() {
@@ -127,11 +159,24 @@ export default function PayRun() {
         <div>
           <strong>OVERVIEW DATE:</strong> {event.event_date}
         </div>
-        {event.region && (
-          <div>
-            <strong>REGION:</strong> {event.region}
-          </div>
-        )}
+        <div className="no-print">
+          <strong>REGION:</strong>{' '}
+          <select
+            value={event.region || 'Gauteng'}
+            disabled={savingRegion}
+            onChange={(e) => changeRegion(e.target.value)}
+          >
+            {REGIONS.map((r) => (
+              <option key={r} value={r}>
+                {r}
+              </option>
+            ))}
+          </select>
+          {savingRegion && ' Saving…'}
+        </div>
+        <div className="print-only-inline">
+          <strong>REGION:</strong> {event.region || 'Gauteng'}
+        </div>
       </div>
 
       <table className="posting-table">
@@ -179,7 +224,37 @@ export default function PayRun() {
                 <td>{slot.psira_number}</td>
                 <td>{slot.bib_serial}</td>
                 <td>{view.posting}</td>
-                <td>R {Number(view.payRate).toFixed(2)}</td>
+                <td className="no-print-input">
+                  {officerType ? (
+                    <>
+                      {editingRateId === officerType.id ? (
+                        <input
+                          type="number"
+                          className="time-edit-input"
+                          autoFocus
+                          defaultValue={officerType.pay_rate}
+                          disabled={rateSaving}
+                          onBlur={(e) => saveRate(officerType.id, e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') e.target.blur()
+                          }}
+                        />
+                      ) : (
+                        <button
+                          type="button"
+                          className="no-print time-edit-btn"
+                          title="Click to change this rate — updates your master rate card for this role/region"
+                          onClick={() => setEditingRateId(officerType.id)}
+                        >
+                          R {Number(view.payRate).toFixed(2)}
+                        </button>
+                      )}
+                      <span className="print-only-inline">R {Number(view.payRate).toFixed(2)}</span>
+                    </>
+                  ) : (
+                    `R ${Number(view.payRate).toFixed(2)}`
+                  )}
+                </td>
                 <td>{view.shifts}</td>
                 <td>R {view.payAmount.toFixed(2)}</td>
                 <td className="checkbox-cell">
