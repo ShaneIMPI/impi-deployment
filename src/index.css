@@ -404,8 +404,10 @@ input, select { padding: 6px; }
 .posting-table th:nth-child(4), .posting-table td:nth-child(4) { min-width: 110px; }
 .posting-table th:nth-child(5), .posting-table td:nth-child(5) { min-width: 90px; }
 
+.print-only-inline { display: none; }
 @media print {
   .no-print, .no-print-input select, button { display: none !important; }
+  .print-only-inline { display: block !important; }
   body { background: white; }
   .page { max-width: 100%; padding: 0; }
   .posting-table th { background: var(--impi-red) !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
