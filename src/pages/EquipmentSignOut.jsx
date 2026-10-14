@@ -267,12 +267,15 @@ export default function EquipmentSignOut() {
       </div>
 
       <p className="no-print" style={{ maxWidth: 760 }}>
-        "Sync from Posting Sheet" rebuilds the auto-issued rows below (bibs / pullovers per
-        posting) from every posting on the current Posting Sheet and the rules set up on the
-        Catalog &amp; Rules page — including postings that don't have an officer assigned yet,
-        so the office can pack the right equipment before confirmation. Safe to run again any
-        time officers or sections change. Items you add manually below (radios, gazebos, bins,
-        etc.) are never touched by syncing.
+        "Sync from Posting Sheet" rebuilds the auto-issued rows below (bibs / pullovers / cleaning
+        gear per officer type) from every posting on the current Posting Sheet and the rules set
+        up on the Catalog &amp; Rules page — including postings that don't have an officer
+        assigned yet. Equipment is packed once per phase (Build-Up, Breakdown, Event Day) at the
+        highest single-day/section count for that phase, not summed across every day, since the
+        same kit gets reused. A rule tied to a specific officer type (e.g. cleaning gear tied to
+        "Event Cleaner") only shows up here when that type is actually posted on the sheet. Safe
+        to run again any time officers or sections change. Items you add manually below (radios,
+        gazebos, bins, etc.) are never touched by syncing.
       </p>
 
       <table className="simple-table equipment-table">
@@ -356,13 +359,9 @@ export default function EquipmentSignOut() {
                       </div>
                       {ruleRows.length > 0 && (
                         <div>
-                          <strong>Per officer (auto, from Posting Sheet):</strong>
+                          <strong>Auto-issued (from Posting Sheet rules):</strong>
                           <ul>
-                            {ruleRows.map((r) => (
-                              <li key={r.id}>
-                                {r.officer_label || 'Unnamed officer'} — {r.qty}
-                              </li>
-                            ))}
+                            {ruleRows.map((r) => <li key={r.id}>{r.officer_label || `${r.qty} needed`}</li>)}
                           </ul>
                         </div>
                       )}
