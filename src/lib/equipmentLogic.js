@@ -60,33 +60,43 @@ export function buildSlotSectionMap(slots, lineItemsById) {
   return bySlotId
 }
 
-// A slot counts as "assigned" (and therefore due equipment) once a
-// name has been entered, whether picked from the roster or typed
-// directly — matches how the Posting Sheet itself treats a filled row.
+// A slot counts as "assigned" once a name has been entered, whether
+// picked from the roster or typed directly — matches how the Posting
+// Sheet itself treats a filled row. Equipment sync no longer requires
+// this (vacant postings still need equipment packed for them ahead of
+// the event), but it's kept for any display logic that wants to tell
+// filled and vacant postings apart.
 export function isSlotAssigned(slot) {
   return !!(slot.first_name || slot.last_name || slot.officer_id)
 }
 
-export function officerLabel(slot) {
+// Labels a posting for the Equipment Sign-Out detail view: the
+// officer's name once assigned, or "Vacant – <posting>" beforehand so
+// the office can still see which posting each unassigned issue is for.
+export function officerLabel(slot, lineItem) {
   const name = `${slot.first_name || ''} ${slot.last_name || ''}`.trim()
-  return name || 'Unnamed officer'
+  if (name) return name
+  const posting = lineItem?.posting_location || lineItem?.officer_type_name
+  return posting ? `Vacant – ${posting}` : 'Vacant posting'
 }
 
-// Given all assigned slots (with their section phase/category attached)
-// and the current rules, returns the fresh set of rule-generated
-// event_equipment_items rows that should exist right now. Does not
-// touch manual rows — the caller re-synchronizes only source='rule'
-// rows against this list.
-export function generateRuleAssignments(eventId, assignedSlotsWithSection, rules) {
+// Given every posting on the sheet (with its section phase/category
+// attached), filled or still vacant, and the current rules, returns
+// the fresh set of rule-generated event_equipment_items rows that
+// should exist right now. Vacant postings are included on purpose —
+// the office needs to know what to pack before officers are confirmed.
+// Does not touch manual rows — the caller re-synchronizes only
+// source='rule' rows against this list.
+export function generateRuleAssignments(eventId, slotsWithSection, rules) {
   const rows = []
-  assignedSlotsWithSection.forEach(({ slot, phase, posting_category }) => {
+  slotsWithSection.forEach(({ slot, lineItem, phase, posting_category }) => {
     const applicable = rulesFor(rules, phase, posting_category)
     applicable.forEach((rule) => {
       rows.push({
         event_id: eventId,
         equipment_item_id: rule.equipment_item_id,
         posting_slot_id: slot.id,
-        officer_label: officerLabel(slot),
+        officer_label: officerLabel(slot, lineItem),
         qty: Number(rule.qty_per_officer) || 1,
         source: 'rule',
       })
