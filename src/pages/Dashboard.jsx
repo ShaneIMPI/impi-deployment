@@ -43,6 +43,7 @@ export default function Dashboard() {
           </Link>
         )}
         <Link to="/officers">Officer Roster</Link>
+        <Link to="/equipment-settings">Equipment Catalog &amp; Rules</Link>
         {isViewer && <span className="viewer-badge">View-only access</span>}
       </nav>
 
@@ -78,6 +79,7 @@ export default function Dashboard() {
                 <td className="row-actions">
                   <Link to={`/events/${ev.id}/posting-sheet`}>Posting Sheet</Link>
                   <Link to={`/events/${ev.id}/pay-run`}>Pay Run</Link>
+                  <Link to={`/events/${ev.id}/equipment`}>Equipment</Link>
                 </td>
                 {!isViewer && (
                   <td>
