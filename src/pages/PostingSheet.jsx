@@ -4,6 +4,7 @@ import { supabase } from '../supabaseClient'
 import { deriveSlotView } from '../lib/postingLogic'
 import { getIsViewer } from '../lib/roles'
 import { REGIONS } from '../lib/regions'
+import { PHASES, POSTING_CATEGORIES } from '../lib/equipmentLogic'
 import {
   queueSlotUpdate,
   getQueueCount,
@@ -201,7 +202,12 @@ export default function PostingSheet() {
   const [addSaving, setAddSaving] = useState(false)
 
   const [showAddSection, setShowAddSection] = useState(false)
-  const [sectionForm, setSectionForm] = useState({ section_text: '', insertAfter: 'END' })
+  const [sectionForm, setSectionForm] = useState({
+    section_text: '',
+    insertAfter: 'END',
+    phase: 'event_day',
+    posting_category: 'general',
+  })
   const [sectionSaving, setSectionSaving] = useState(false)
 
   // List of existing sections, in order, for the "insert after" dropdown.
@@ -287,6 +293,8 @@ export default function PostingSheet() {
         sort_order: insertAfter,
         section_text: sectionText,
         page_break_before: true,
+        phase: sectionForm.phase,
+        posting_category: sectionForm.posting_category,
       })
       .select()
       .single()
@@ -310,7 +318,7 @@ export default function PostingSheet() {
     }
 
     setShowAddSection(false)
-    setSectionForm({ section_text: '', insertAfter: 'END' })
+    setSectionForm({ section_text: '', insertAfter: 'END', phase: 'event_day', posting_category: 'general' })
     setSectionSaving(false)
     load()
   }
@@ -462,6 +470,16 @@ export default function PostingSheet() {
     await supabase.from('quote_line_items').update({ page_break_before: next }).eq('id', lineItemId)
   }
 
+  // Drives the Equipment Sign-Out feature: which event phase this
+  // section falls in, and whether it's a Parking/Street posting or a
+  // general one — see Equipment Catalog & Rules for how these combine
+  // into what gets auto-issued per officer.
+  async function updateSectionEquipmentTag(lineItemId, field, value) {
+    if (isViewer) return
+    setLineItems((prev) => prev.map((li) => (li.id === lineItemId ? { ...li, [field]: value } : li)))
+    await supabase.from('quote_line_items').update({ [field]: value }).eq('id', lineItemId)
+  }
+
   if (loading) return <div className="page">Loading…</div>
   if (!event) return <div className="page">Event not found.</div>
 
@@ -474,6 +492,7 @@ export default function PostingSheet() {
 
       <div className="event-meta no-print">
         <Link to="/">← Back to Events</Link>
+        <Link to={`/events/${eventId}/equipment`}>Equipment</Link>
         <button onClick={() => window.print()}>Print</button>
         <button
           onClick={() => {
@@ -617,6 +636,35 @@ export default function PostingSheet() {
                   <td colSpan={11}>
                     <div className="section-header-inner">
                       <span>{lineItem.section_text}</span>
+                      {!isViewer ? (
+                        <span className="no-print equipment-tag-selects" title="Drives the Equipment Sign-Out page — see Equipment Catalog & Rules for what each combination auto-issues">
+                          <select
+                            value={lineItem.phase || 'event_day'}
+                            onChange={(e) => updateSectionEquipmentTag(lineItem.id, 'phase', e.target.value)}
+                          >
+                            {PHASES.map((p) => (
+                              <option key={p.value} value={p.value}>
+                                {p.label}
+                              </option>
+                            ))}
+                          </select>
+                          <select
+                            value={lineItem.posting_category || 'general'}
+                            onChange={(e) => updateSectionEquipmentTag(lineItem.id, 'posting_category', e.target.value)}
+                          >
+                            {POSTING_CATEGORIES.map((c) => (
+                              <option key={c.value} value={c.value}>
+                                {c.label}
+                              </option>
+                            ))}
+                          </select>
+                        </span>
+                      ) : (
+                        <span className="equipment-tag-badge no-print">
+                          {(PHASES.find((p) => p.value === (lineItem.phase || 'event_day')) || {}).label} ·{' '}
+                          {(POSTING_CATEGORIES.find((c) => c.value === (lineItem.posting_category || 'general')) || {}).label}
+                        </span>
+                      )}
                       {!isViewer && (
                         <button
                           type="button"
@@ -1020,6 +1068,32 @@ export default function PostingSheet() {
                   ))}
                 </select>
               </label>
+              <label className="section-break-toggle" style={{ flexDirection: 'column', alignItems: 'flex-start' }}>
+                Phase (for Equipment Sign-Out)
+                <select
+                  value={sectionForm.phase}
+                  onChange={(e) => setSectionForm({ ...sectionForm, phase: e.target.value })}
+                >
+                  {PHASES.map((p) => (
+                    <option key={p.value} value={p.value}>
+                      {p.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="section-break-toggle" style={{ flexDirection: 'column', alignItems: 'flex-start' }}>
+                Posting Type (for Equipment Sign-Out)
+                <select
+                  value={sectionForm.posting_category}
+                  onChange={(e) => setSectionForm({ ...sectionForm, posting_category: e.target.value })}
+                >
+                  {POSTING_CATEGORIES.map((c) => (
+                    <option key={c.value} value={c.value}>
+                      {c.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
             </div>
             <div className="signature-actions">
               <button
@@ -1032,7 +1106,7 @@ export default function PostingSheet() {
               <button
                 onClick={() => {
                   setShowAddSection(false)
-                  setSectionForm({ section_text: '', insertAfter: 'END' })
+                  setSectionForm({ section_text: '', insertAfter: 'END', phase: 'event_day', posting_category: 'general' })
                 }}
               >
                 Cancel
