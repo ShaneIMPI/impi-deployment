@@ -2,9 +2,6 @@
 // the convention in postingLogic.js so the Equipment page and any
 // future consumer never drift apart.
 
-// Shown on the Posting Sheet (per section) and on Equipment Settings
-// (rules grid). Add more phases here later if Shane needs them —
-// nothing else in the code needs to change.
 export const PHASES = [
   { value: 'build_up', label: 'Build-Up' },
   { value: 'breakdown', label: 'Breakdown' },
@@ -24,10 +21,14 @@ export function postingCategoryLabel(value) {
   return POSTING_CATEGORIES.find((c) => c.value === value)?.label || value || 'General'
 }
 
-// Given the full list of equipment_rules rows, returns every rule that
-// applies to a section with this phase + posting_category, each with
-// qty_per_officer > 0 (a rule with qty 0 is a deliberate "no automatic
-// issue" placeholder and is skipped here).
+// A posting's officer type can be overridden per individual slot
+// (PostingSheet.jsx), falling back to the section/line item's default
+// — this is the one place that logic should live so rule-matching
+// never drifts out of sync with what the Posting Sheet actually shows.
+export function effectiveOfficerType(slot, lineItem) {
+  return (slot?.officer_type_override || lineItem?.officer_type_name || '').trim()
+}
+
 export function rulesFor(rules, phase, postingCategory) {
   return rules.filter(
     (r) =>
@@ -37,14 +38,31 @@ export function rulesFor(rules, phase, postingCategory) {
   )
 }
 
-// Builds a map of line_item_id (SECTION HEADER) -> that section's
-// {phase, posting_category}, and a map of posting_slot.id -> the same,
-// by walking the slots in sort_order and remembering the most recent
-// section header seen (same walking pattern used throughout
-// PostingSheet.jsx for per-section lookups).
+// A blank officer_type_name on a rule means "every officer type" —
+// this is how Pullovers (worn by all roles) and any other
+// universal item keep working. A rule with an officer type set only
+// matches postings of that exact type, which is also what makes
+// cleaning equipment automatic: tie a rule's officer type to the
+// cleaner role and it simply never matches (so never issues) on an
+// event with no cleaner posted.
+export function ruleMatchesOfficerType(rule, officerTypeName) {
+  const ruleType = (rule.officer_type_name || '').trim()
+  if (!ruleType) return true
+  return ruleType === (officerTypeName || '').trim()
+}
+
+export function officerTypeLabelForRule(rule) {
+  return (rule.officer_type_name || '').trim() || 'All officer types'
+}
+
+// Tags every LINE ITEM posting slot with the phase/posting_category of
+// the SECTION HEADER it falls under, plus that section's own id/label —
+// the section is the only grouping boundary the sheet actually has
+// (there's no reliable per-day date field), so it doubles as "one
+// deployment instance" for the pack-once-per-phase logic below.
 export function buildSlotSectionMap(slots, lineItemsById) {
   const bySlotId = {}
-  let current = { phase: 'event_day', posting_category: 'general' }
+  let current = { phase: 'event_day', posting_category: 'general', sectionId: null, sectionLabel: '' }
   for (const slot of slots) {
     const li = lineItemsById[slot.line_item_id]
     if (!li) continue
@@ -52,6 +70,8 @@ export function buildSlotSectionMap(slots, lineItemsById) {
       current = {
         phase: li.phase || 'event_day',
         posting_category: li.posting_category || 'general',
+        sectionId: li.id,
+        sectionLabel: li.section_text || '',
       }
     } else {
       bySlotId[slot.id] = current
@@ -60,47 +80,61 @@ export function buildSlotSectionMap(slots, lineItemsById) {
   return bySlotId
 }
 
-// A slot counts as "assigned" once a name has been entered, whether
-// picked from the roster or typed directly — matches how the Posting
-// Sheet itself treats a filled row. Equipment sync no longer requires
-// this (vacant postings still need equipment packed for them ahead of
-// the event), but it's kept for any display logic that wants to tell
-// filled and vacant postings apart.
-export function isSlotAssigned(slot) {
-  return !!(slot.first_name || slot.last_name || slot.officer_id)
-}
-
-// Labels a posting for the Equipment Sign-Out detail view: the
-// officer's name once assigned, or "Vacant – <posting>" beforehand so
-// the office can still see which posting each unassigned issue is for.
-export function officerLabel(slot, lineItem) {
-  const name = `${slot.first_name || ''} ${slot.last_name || ''}`.trim()
-  if (name) return name
-  const posting = lineItem?.posting_location || lineItem?.officer_type_name
-  return posting ? `Vacant – ${posting}` : 'Vacant posting'
-}
-
-// Given every posting on the sheet (with its section phase/category
-// attached), filled or still vacant, and the current rules, returns
-// the fresh set of rule-generated event_equipment_items rows that
-// should exist right now. Vacant postings are included on purpose —
-// the office needs to know what to pack before officers are confirmed.
-// Does not touch manual rows — the caller re-synchronizes only
-// source='rule' rows against this list.
+// Builds the auto-issued equipment rows for an event. Each `rule` is
+// matched against every SECTION on the Posting Sheet that shares its
+// phase + posting category; the section is treated as one deployment
+// instance (one day, one build-up slot, one breakdown slot, etc.).
+// Equipment only ever gets packed for the SINGLE busiest instance of
+// a rule's phase — never summed across every section — because the
+// same kit is reused day to day, and Build-Up/Breakdown should size
+// off their highest single deployment, not every shift added together.
+// A rule tied to one officer type only counts postings of that type;
+// a blank officer type counts every posting in the section, which is
+// what makes a universal item (Pullovers) and a gated one (cleaning
+// gear, once tied to the cleaner role) both fall out of the same rule.
 export function generateRuleAssignments(eventId, slotsWithSection, rules) {
+  // sectionId (or a fallback bucket) -> { phase, posting_category, sectionLabel, slots }
+  const sections = new Map()
+  slotsWithSection.forEach(({ slot, lineItem, phase, posting_category, sectionId, sectionLabel }) => {
+    const key = sectionId || '__no_section__'
+    if (!sections.has(key)) {
+      sections.set(key, {
+        phase: phase || 'event_day',
+        posting_category: posting_category || 'general',
+        sectionLabel: sectionLabel || '',
+        slots: [],
+      })
+    }
+    sections.get(key).slots.push({ officerType: effectiveOfficerType(slot, lineItem) })
+  })
+
   const rows = []
-  slotsWithSection.forEach(({ slot, lineItem, phase, posting_category }) => {
-    const applicable = rulesFor(rules, phase, posting_category)
-    applicable.forEach((rule) => {
+  rules.forEach((rule) => {
+    if (!(Number(rule.qty_per_officer) > 0)) return
+    let peakQty = 0
+    let peakCount = 0
+    let peakLabel = ''
+    sections.forEach((section) => {
+      if (section.phase !== (rule.phase || 'event_day')) return
+      if (section.posting_category !== (rule.posting_category || 'general')) return
+      const count = section.slots.filter((s) => ruleMatchesOfficerType(rule, s.officerType)).length
+      const qty = count * (Number(rule.qty_per_officer) || 1)
+      if (qty > peakQty) {
+        peakQty = qty
+        peakCount = count
+        peakLabel = section.sectionLabel || phaseLabel(section.phase)
+      }
+    })
+    if (peakQty > 0) {
       rows.push({
         event_id: eventId,
         equipment_item_id: rule.equipment_item_id,
-        posting_slot_id: slot.id,
-        officer_label: officerLabel(slot, lineItem),
-        qty: Number(rule.qty_per_officer) || 1,
+        posting_slot_id: null,
+        officer_label: `${officerTypeLabelForRule(rule)} — ${peakCount} needed (peak: ${peakLabel})`,
+        qty: peakQty,
         source: 'rule',
       })
-    })
+    }
   })
   return rows
 }
