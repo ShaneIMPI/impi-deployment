@@ -8,6 +8,7 @@ import Header from '../components/Header'
 export default function EquipmentSettings() {
   const [catalog, setCatalog] = useState([])
   const [rules, setRules] = useState([])
+  const [officerTypes, setOfficerTypes] = useState([])
   const [loading, setLoading] = useState(true)
   const [isViewer, setIsViewer] = useState(false)
   const [tab, setTab] = useState('catalog')
@@ -24,12 +25,14 @@ export default function EquipmentSettings() {
 
   async function load() {
     setLoading(true)
-    const [{ data: cat }, { data: rul }] = await Promise.all([
+    const [{ data: cat }, { data: rul }, { data: types }] = await Promise.all([
       supabase.from('equipment_catalog').select('*').order('sort_order'),
       supabase.from('equipment_rules').select('*'),
+      supabase.from('officer_types').select('*').order('type_name'),
     ])
     setCatalog(cat || [])
     setRules(rul || [])
+    setOfficerTypes(types || [])
     setLoading(false)
   }
 
@@ -94,12 +97,16 @@ export default function EquipmentSettings() {
       posting_category,
       equipment_item_id: form.equipment_item_id,
       qty_per_officer: Math.max(0, Number(form.qty_per_officer) || 1),
+      officer_type_name: form.officer_type_name || null,
     })
     if (error) {
       alert('Could not add rule: ' + error.message)
       return
     }
-    setNewRule((prev) => ({ ...prev, [key]: { equipment_item_id: '', qty_per_officer: 1 } }))
+    setNewRule((prev) => ({
+      ...prev,
+      [key]: { equipment_item_id: '', qty_per_officer: 1, officer_type_name: '' },
+    }))
     load()
   }
 
@@ -107,6 +114,19 @@ export default function EquipmentSettings() {
     const q = Math.max(0, Number(qty) || 0)
     setRules((prev) => prev.map((r) => (r.id === rule.id ? { ...r, qty_per_officer: q } : r)))
     await supabase.from('equipment_rules').update({ qty_per_officer: q }).eq('id', rule.id)
+  }
+
+  async function updateRuleOfficerType(rule, officerTypeName) {
+    const value = officerTypeName || null
+    setRules((prev) => prev.map((r) => (r.id === rule.id ? { ...r, officer_type_name: value } : r)))
+    const { error } = await supabase.from('equipment_rules').update({ officer_type_name: value }).eq('id', rule.id)
+    if (error) {
+      alert(
+        'Could not update officer type — there is probably already a rule for this exact ' +
+          'phase/category/equipment/officer-type combination: ' + error.message
+      )
+      load()
+    }
   }
 
   async function removeRule(rule) {
@@ -219,10 +239,14 @@ export default function EquipmentSettings() {
         <>
           <p>
             For each combination of event phase and posting type, these rules decide what gets
-            automatically issued per officer when Shane hits "Sync from Posting Sheet" on an
-            event's Equipment page. Example already set up: Event Day + General → Pullovers;
-            Event Day + Parking/Street, Build-Up and Breakdown → the correct bibs. Edit, remove or
-            add rules any time — changes apply the next time an event is synced.
+            automatically issued when Shane hits "Sync from Posting Sheet" on an event's Equipment
+            page. Set an Officer Type on a rule to issue that item only to that type (e.g. a
+            Marshal Bib only for Marshals) — leave it as "All officer types" for something
+            everyone wears, like Pullovers. Tie a rule's Officer Type to a cleaning role (e.g.
+            "Event Cleaner") to make that equipment appear only on events that actually have a
+            cleaner posted. Quantities are packed once per phase at the highest single
+            day/section count, not summed across every day. Edit, remove or add rules any time —
+            changes apply the next time an event is synced.
           </p>
           {PHASES.map((phase) =>
             POSTING_CATEGORIES.map((cat) => {
@@ -230,7 +254,7 @@ export default function EquipmentSettings() {
               const combinationRules = rules.filter(
                 (r) => r.phase === phase.value && r.posting_category === cat.value
               )
-              const form = newRule[key] || { equipment_item_id: '', qty_per_officer: 1 }
+              const form = newRule[key] || { equipment_item_id: '', qty_per_officer: 1, officer_type_name: '' }
               return (
                 <div key={key} className="equipment-rule-block">
                   <h3>
@@ -243,6 +267,7 @@ export default function EquipmentSettings() {
                       <thead>
                         <tr>
                           <th>Equipment Type</th>
+                          <th>Officer Type</th>
                           <th>Qty per Officer</th>
                           {!isViewer && <th></th>}
                         </tr>
@@ -251,6 +276,21 @@ export default function EquipmentSettings() {
                         {combinationRules.map((rule) => (
                           <tr key={rule.id}>
                             <td>{catalogById[rule.equipment_item_id]?.name || '(deleted item)'}</td>
+                            <td>
+                              <select
+                                className="print-input"
+                                value={rule.officer_type_name || ''}
+                                disabled={isViewer}
+                                onChange={(e) => updateRuleOfficerType(rule, e.target.value)}
+                              >
+                                <option value="">All officer types</option>
+                                {officerTypes.map((t) => (
+                                  <option key={t.id} value={t.type_name}>
+                                    {t.type_name}
+                                  </option>
+                                ))}
+                              </select>
+                            </td>
                             <td>
                               <input
                                 type="number"
@@ -288,12 +328,27 @@ export default function EquipmentSettings() {
                         <option value="">— Add equipment to this rule —</option>
                         {catalog
                           .filter((c) => c.active)
-                          .filter((c) => !combinationRules.some((r) => r.equipment_item_id === c.id))
                           .map((c) => (
                             <option key={c.id} value={c.id}>
                               {c.name}
                             </option>
                           ))}
+                      </select>
+                      <select
+                        value={form.officer_type_name || ''}
+                        onChange={(e) =>
+                          setNewRule((prev) => ({
+                            ...prev,
+                            [key]: { ...form, officer_type_name: e.target.value },
+                          }))
+                        }
+                      >
+                        <option value="">All officer types</option>
+                        {officerTypes.map((t) => (
+                          <option key={t.id} value={t.type_name}>
+                            {t.type_name}
+                          </option>
+                        ))}
                       </select>
                       <input
                         type="number"
