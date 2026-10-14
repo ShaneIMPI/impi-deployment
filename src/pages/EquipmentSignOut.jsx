@@ -2,7 +2,7 @@ import { Fragment, useEffect, useMemo, useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { supabase } from '../supabaseClient'
 import { getIsViewer } from '../lib/roles'
-import { buildSlotSectionMap, generateRuleAssignments, isSlotAssigned } from '../lib/equipmentLogic'
+import { buildSlotSectionMap, generateRuleAssignments } from '../lib/equipmentLogic'
 import Header from '../components/Header'
 
 export default function EquipmentSignOut() {
@@ -82,8 +82,11 @@ export default function EquipmentSignOut() {
 
   const slotSectionMap = useMemo(() => buildSlotSectionMap(slots, lineItemsById), [slots, lineItemsById])
 
-  const assignedSlots = useMemo(
-    () => slots.filter((s) => lineItemsById[s.line_item_id]?.row_type === 'LINE ITEM' && isSlotAssigned(s)),
+  // Every posting on the sheet, filled or still vacant — equipment
+  // needs to be packed for a posting whether or not an officer has
+  // been assigned to it yet.
+  const postingSlots = useMemo(
+    () => slots.filter((s) => lineItemsById[s.line_item_id]?.row_type === 'LINE ITEM'),
     [slots, lineItemsById]
   )
 
@@ -96,11 +99,12 @@ export default function EquipmentSignOut() {
       // (Gazebo, Wheelie Bins, etc.) are never touched.
       await supabase.from('event_equipment_items').delete().eq('event_id', eventId).eq('source', 'rule')
 
-      const assignedSlotsWithSection = assignedSlots.map((slot) => ({
+      const slotsWithSection = postingSlots.map((slot) => ({
         slot,
+        lineItem: lineItemsById[slot.line_item_id],
         ...(slotSectionMap[slot.id] || { phase: 'event_day', posting_category: 'general' }),
       }))
-      const freshRows = generateRuleAssignments(eventId, assignedSlotsWithSection, rules)
+      const freshRows = generateRuleAssignments(eventId, slotsWithSection, rules)
       if (freshRows.length > 0) {
         const concurrency = 200
         for (let i = 0; i < freshRows.length; i += concurrency) {
@@ -225,9 +229,11 @@ export default function EquipmentSignOut() {
 
       <p className="no-print" style={{ maxWidth: 760 }}>
         "Sync from Posting Sheet" rebuilds the auto-issued rows below (bibs / pullovers per
-        officer) from the current Posting Sheet and the rules set up on the Catalog &amp; Rules
-        page — safe to run again any time officers or sections change. Items you add manually
-        below (radios, gazebos, bins, etc.) are never touched by syncing.
+        posting) from every posting on the current Posting Sheet and the rules set up on the
+        Catalog &amp; Rules page — including postings that don't have an officer assigned yet,
+        so the office can pack the right equipment before confirmation. Safe to run again any
+        time officers or sections change. Items you add manually below (radios, gazebos, bins,
+        etc.) are never touched by syncing.
       </p>
 
       <table className="simple-table equipment-table">
