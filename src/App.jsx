@@ -5,6 +5,8 @@ import EventUpload from './pages/EventUpload'
 import OfficerRoster from './pages/OfficerRoster'
 import PostingSheet from './pages/PostingSheet'
 import PayRun from './pages/PayRun'
+import EquipmentSignOut from './pages/EquipmentSignOut'
+import EquipmentSettings from './pages/EquipmentSettings'
 
 export default function App() {
   return (
@@ -16,6 +18,8 @@ export default function App() {
           <Route path="/officers" element={<OfficerRoster />} />
           <Route path="/events/:eventId/posting-sheet" element={<PostingSheet />} />
           <Route path="/events/:eventId/pay-run" element={<PayRun />} />
+          <Route path="/events/:eventId/equipment" element={<EquipmentSignOut />} />
+          <Route path="/equipment-settings" element={<EquipmentSettings />} />
         </Routes>
       </AuthGate>
     </BrowserRouter>
