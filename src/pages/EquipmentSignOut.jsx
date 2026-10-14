@@ -57,9 +57,21 @@ export default function EquipmentSignOut() {
     setSignoff(
       so || {
         event_id: eventId,
+        packed_out_name: '',
+        packed_out_id_number: '',
+        packed_out_job_title: '',
+        checked_out_name: '',
+        checked_out_id_number: '',
+        checked_out_job_title: '',
         signed_out_name: '',
         signed_out_id_number: '',
         signed_out_job_title: '',
+        packed_back_name: '',
+        packed_back_id_number: '',
+        packed_back_job_title: '',
+        checked_back_name: '',
+        checked_back_id_number: '',
+        checked_back_job_title: '',
         signed_back_name: '',
         signed_back_id_number: '',
         signed_back_job_title: '',
@@ -144,17 +156,44 @@ export default function EquipmentSignOut() {
     return m
   }, [verification])
 
-  async function toggleVerified(equipmentItemId) {
+  // Shared writer for the per-equipment-type verification row — covers
+  // the "Verified" tick, the numbers out/back text (e.g. bib numbers),
+  // and the "Reconciled" tick, all stored on event_equipment_verification
+  // keyed by (event_id, equipment_item_id).
+  async function saveVerification(equipmentItemId, patch) {
     if (isViewer) return
-    const current = verificationByItem[equipmentItemId]
-    const next = !current?.verified
+    const current = verificationByItem[equipmentItemId] || {
+      event_id: eventId,
+      equipment_item_id: equipmentItemId,
+      verified: false,
+      numbers_out: '',
+      numbers_back: '',
+      numbers_reconciled: false,
+    }
+    const next = { ...current, ...patch }
     setVerification((prev) => {
       const others = prev.filter((v) => v.equipment_item_id !== equipmentItemId)
-      return [...others, { event_id: eventId, equipment_item_id: equipmentItemId, verified: next }]
+      return [...others, next]
     })
-    await supabase
-      .from('event_equipment_verification')
-      .upsert({ event_id: eventId, equipment_item_id: equipmentItemId, verified: next, verified_at: new Date().toISOString() })
+    await supabase.from('event_equipment_verification').upsert({
+      event_id: eventId,
+      equipment_item_id: equipmentItemId,
+      verified: !!next.verified,
+      verified_at: next.verified ? new Date().toISOString() : current.verified_at || null,
+      numbers_out: next.numbers_out || '',
+      numbers_back: next.numbers_back || '',
+      numbers_reconciled: !!next.numbers_reconciled,
+    })
+  }
+
+  function toggleVerified(equipmentItemId) {
+    const current = verificationByItem[equipmentItemId]
+    saveVerification(equipmentItemId, { verified: !current?.verified })
+  }
+
+  function toggleReconciled(equipmentItemId) {
+    const current = verificationByItem[equipmentItemId]
+    saveVerification(equipmentItemId, { numbers_reconciled: !current?.numbers_reconciled })
   }
 
   async function addManualItem() {
@@ -287,6 +326,34 @@ export default function EquipmentSignOut() {
                 {isOpen && (
                   <tr className="no-print equipment-row-detail">
                     <td colSpan={5}>
+                      <div style={{ marginBottom: 10 }}>
+                        <strong>Numbers out / back (e.g. bib numbers):</strong>
+                        <div className="inline-form">
+                          <input
+                            placeholder="Numbers issued (e.g. 12, 14, 19)"
+                            style={{ minWidth: 220 }}
+                            value={verificationByItem[t.equipment_item_id]?.numbers_out || ''}
+                            disabled={isViewer}
+                            onChange={(e) => saveVerification(t.equipment_item_id, { numbers_out: e.target.value })}
+                          />
+                          <input
+                            placeholder="Numbers returned"
+                            style={{ minWidth: 220 }}
+                            value={verificationByItem[t.equipment_item_id]?.numbers_back || ''}
+                            disabled={isViewer}
+                            onChange={(e) => saveVerification(t.equipment_item_id, { numbers_back: e.target.value })}
+                          />
+                          <label style={{ whiteSpace: 'nowrap' }}>
+                            <input
+                              type="checkbox"
+                              checked={!!verificationByItem[t.equipment_item_id]?.numbers_reconciled}
+                              disabled={isViewer}
+                              onChange={() => toggleReconciled(t.equipment_item_id)}
+                            />{' '}
+                            Reconciled
+                          </label>
+                        </div>
+                      </div>
                       {ruleRows.length > 0 && (
                         <div>
                           <strong>Per officer (auto, from Posting Sheet):</strong>
@@ -361,7 +428,50 @@ export default function EquipmentSignOut() {
       )}
 
       <div className="equipment-signoff-footer">
-        <h3>1. Signed Out By</h3>
+        <h3 style={{ marginTop: 0 }}>OUT</h3>
+        <h4>1. Packed By</h4>
+        <div className="inline-form">
+          <input
+            placeholder="Name & Surname"
+            value={signoff?.packed_out_name || ''}
+            disabled={isViewer}
+            onChange={(e) => saveSignoff({ packed_out_name: e.target.value })}
+          />
+          <input
+            placeholder="ID No."
+            value={signoff?.packed_out_id_number || ''}
+            disabled={isViewer}
+            onChange={(e) => saveSignoff({ packed_out_id_number: e.target.value })}
+          />
+          <input
+            placeholder="Job Title"
+            value={signoff?.packed_out_job_title || ''}
+            disabled={isViewer}
+            onChange={(e) => saveSignoff({ packed_out_job_title: e.target.value })}
+          />
+        </div>
+        <h4>2. Checked By</h4>
+        <div className="inline-form">
+          <input
+            placeholder="Name & Surname"
+            value={signoff?.checked_out_name || ''}
+            disabled={isViewer}
+            onChange={(e) => saveSignoff({ checked_out_name: e.target.value })}
+          />
+          <input
+            placeholder="ID No."
+            value={signoff?.checked_out_id_number || ''}
+            disabled={isViewer}
+            onChange={(e) => saveSignoff({ checked_out_id_number: e.target.value })}
+          />
+          <input
+            placeholder="Job Title"
+            value={signoff?.checked_out_job_title || ''}
+            disabled={isViewer}
+            onChange={(e) => saveSignoff({ checked_out_job_title: e.target.value })}
+          />
+        </div>
+        <h4>3. Signed Out By</h4>
         <div className="inline-form">
           <input
             placeholder="Name & Surname"
@@ -382,7 +492,51 @@ export default function EquipmentSignOut() {
             onChange={(e) => saveSignoff({ signed_out_job_title: e.target.value })}
           />
         </div>
-        <h3>2. Signed Back By</h3>
+
+        <h3>BACK IN</h3>
+        <h4>4. Packed By</h4>
+        <div className="inline-form">
+          <input
+            placeholder="Name & Surname"
+            value={signoff?.packed_back_name || ''}
+            disabled={isViewer}
+            onChange={(e) => saveSignoff({ packed_back_name: e.target.value })}
+          />
+          <input
+            placeholder="ID No."
+            value={signoff?.packed_back_id_number || ''}
+            disabled={isViewer}
+            onChange={(e) => saveSignoff({ packed_back_id_number: e.target.value })}
+          />
+          <input
+            placeholder="Job Title"
+            value={signoff?.packed_back_job_title || ''}
+            disabled={isViewer}
+            onChange={(e) => saveSignoff({ packed_back_job_title: e.target.value })}
+          />
+        </div>
+        <h4>5. Checked By</h4>
+        <div className="inline-form">
+          <input
+            placeholder="Name & Surname"
+            value={signoff?.checked_back_name || ''}
+            disabled={isViewer}
+            onChange={(e) => saveSignoff({ checked_back_name: e.target.value })}
+          />
+          <input
+            placeholder="ID No."
+            value={signoff?.checked_back_id_number || ''}
+            disabled={isViewer}
+            onChange={(e) => saveSignoff({ checked_back_id_number: e.target.value })}
+          />
+          <input
+            placeholder="Job Title"
+            value={signoff?.checked_back_job_title || ''}
+            disabled={isViewer}
+            onChange={(e) => saveSignoff({ checked_back_job_title: e.target.value })}
+          />
+        </div>
+        <h4>6. Signed Back By</h4>
         <div className="inline-form">
           <input
             placeholder="Name & Surname"
