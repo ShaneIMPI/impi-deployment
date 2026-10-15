@@ -232,7 +232,15 @@ function concurrentPeak(entries) {
 // Each row's officer_label lists every day that was considered (one per
 // line) so the Equipment sheet can show exactly how the number was
 // reached; the day that set the quantity is marked.
-export function generateRuleAssignments(eventId, slotsWithSection, rules) {
+// Items that are only issued for the Event Day itself (staff pullovers).
+// Build-up and breakdown numbers must never set their quantity, even if
+// a build-up/breakdown rule exists for them. Bibs are not in this list,
+// so they still cover build-up + event.
+export function isEventDayOnlyItem(item) {
+  return /pull\s*-?\s*over/i.test((item && item.name) || '')
+}
+
+export function generateRuleAssignments(eventId, slotsWithSection, rules, catalogById = {}) {
   const sections = groupSections(slotsWithSection)
 
   // Which "day groups" exist: phase + date (undated sections stay alone).
@@ -257,6 +265,8 @@ export function generateRuleAssignments(eventId, slotsWithSection, rules) {
   rules.forEach((rule) => {
     const perOfficer = Number(rule.qty_per_officer) || 0
     if (!(perOfficer > 0)) return
+    const eventOnly = isEventDayOnlyItem(catalogById[rule.equipment_item_id])
+    if (eventOnly && (rule.phase || 'event_day') !== 'event_day') return
     groups.forEach((group) => {
       if (group.phase !== (rule.phase || 'event_day')) return
       const entries = group.sections
