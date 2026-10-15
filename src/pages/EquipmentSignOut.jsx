@@ -2,7 +2,13 @@ import { Fragment, useEffect, useMemo, useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { supabase } from '../supabaseClient'
 import { getIsViewer } from '../lib/roles'
-import { buildSlotSectionMap, generateRuleAssignments } from '../lib/equipmentLogic'
+import {
+  buildSlotSectionMap,
+  generateRuleAssignments,
+  diagnoseSections,
+  phaseLabel,
+  postingCategoryLabel,
+} from '../lib/equipmentLogic'
 import Header from '../components/Header'
 
 export default function EquipmentSignOut() {
@@ -102,20 +108,34 @@ export default function EquipmentSignOut() {
     [slots, lineItemsById]
   )
 
+  const slotsWithSection = useMemo(
+    () =>
+      postingSlots.map((slot) => ({
+        slot,
+        lineItem: lineItemsById[slot.line_item_id],
+        ...(slotSectionMap[slot.id] || { phase: 'event_day', posting_category: 'general' }),
+      })),
+    [postingSlots, lineItemsById, slotSectionMap]
+  )
+
+  // One line per Posting Sheet section: how it was read (day, phase,
+  // category) and whether any rule picked it up.
+  const sectionDiagnostics = useMemo(
+    () => diagnoseSections(slotsWithSection, rules),
+    [slotsWithSection, rules]
+  )
+  const sectionIssues = sectionDiagnostics.filter((d) => d.status !== 'ok')
+
   async function syncFromPostingSheet() {
     if (isViewer) return
     setSyncing(true)
     try {
       // Rule-generated rows are fully recomputed from the current
-      // Posting Sheet + current rules every time — manual rows
-      // (Gazebo, Wheelie Bins, etc.) are never touched.
+      // Posting Sheet + current rules every time. Manual rows (Gazebo,
+      // Wheelie Bins, etc.) and your own quantity overrides are never
+      // touched, so a fix you made by hand survives a re-sync.
       await supabase.from('event_equipment_items').delete().eq('event_id', eventId).eq('source', 'rule')
 
-      const slotsWithSection = postingSlots.map((slot) => ({
-        slot,
-        lineItem: lineItemsById[slot.line_item_id],
-        ...(slotSectionMap[slot.id] || { phase: 'event_day', posting_category: 'general' }),
-      }))
       const freshRows = generateRuleAssignments(eventId, slotsWithSection, rules)
       if (freshRows.length > 0) {
         const concurrency = 200
@@ -132,16 +152,34 @@ export default function EquipmentSignOut() {
     setSyncing(false)
   }
 
-  // Aggregated totals per equipment type, across both rule-generated
-  // and manual rows — this is the table Shane actually signs off on.
+  // Aggregated totals per equipment type — this is the table Shane
+  // actually signs off on. Each line is:
+  //   (auto-calculated amount, OR the amount Shane typed over it)
+  //   + anything added manually.
+  // A typed-over amount is stored as a row with source 'override', which
+  // "Sync from Posting Sheet" never deletes.
   const totals = useMemo(() => {
     const byItem = {}
     items.forEach((row) => {
       if (!byItem[row.equipment_item_id]) {
-        byItem[row.equipment_item_id] = { equipment_item_id: row.equipment_item_id, qty: 0, rows: [] }
+        byItem[row.equipment_item_id] = {
+          equipment_item_id: row.equipment_item_id,
+          ruleQty: 0,
+          manualQty: 0,
+          overrideRow: null,
+          rows: [],
+        }
       }
-      byItem[row.equipment_item_id].qty += Number(row.qty) || 0
-      byItem[row.equipment_item_id].rows.push(row)
+      const entry = byItem[row.equipment_item_id]
+      const q = Number(row.qty) || 0
+      if (row.source === 'rule') entry.ruleQty += q
+      else if (row.source === 'override') entry.overrideRow = entry.overrideRow || row
+      else entry.manualQty += q
+      entry.rows.push(row)
+    })
+    Object.values(byItem).forEach((entry) => {
+      entry.auto = entry.overrideRow ? Number(entry.overrideRow.qty) || 0 : entry.ruleQty
+      entry.qty = entry.auto + entry.manualQty
     })
     return Object.values(byItem).sort((a, b) => {
       const sa = catalogById[a.equipment_item_id]?.sort_order ?? 999
@@ -213,6 +251,82 @@ export default function EquipmentSignOut() {
     load()
   }
 
+  // Quick fix for a wrong number: type the quantity you actually want for
+  // this line. Stored as an 'override' row (the auto-calculated part only,
+  // so anything added manually stays on top). Typing the calculated
+  // number again simply clears the override.
+  async function setLineQty(t, wantedTotal) {
+    if (isViewer) return
+    const wanted = Math.max(0, Math.round(Number(wantedTotal)) || 0)
+    const wantedAuto = Math.max(0, wanted - t.manualQty)
+    if (wantedAuto === t.auto) return
+    if (wantedAuto === t.ruleQty) {
+      await resetLine(t)
+      return
+    }
+    if (t.overrideRow) {
+      const { error } = await supabase
+        .from('event_equipment_items')
+        .update({ qty: wantedAuto })
+        .eq('id', t.overrideRow.id)
+      if (error) {
+        alert('Could not save that quantity: ' + error.message)
+        return
+      }
+      setItems((prev) => prev.map((r) => (r.id === t.overrideRow.id ? { ...r, qty: wantedAuto } : r)))
+    } else {
+      const { data, error } = await supabase
+        .from('event_equipment_items')
+        .insert({
+          event_id: eventId,
+          equipment_item_id: t.equipment_item_id,
+          qty: wantedAuto,
+          source: 'override',
+          officer_label: 'Quantity set by hand',
+        })
+        .select()
+        .single()
+      if (error) {
+        alert('Could not save that quantity: ' + error.message)
+        return
+      }
+      setItems((prev) => [...prev, data])
+    }
+  }
+
+  // Back to whatever the Posting Sheet calculation says.
+  async function resetLine(t) {
+    if (isViewer || !t.overrideRow) return
+    const { error } = await supabase.from('event_equipment_items').delete().eq('id', t.overrideRow.id)
+    if (error) {
+      alert('Could not reset: ' + error.message)
+      return
+    }
+    setItems((prev) => prev.filter((r) => r.id !== t.overrideRow.id))
+  }
+
+  // Take a wrongly-issued line off the sheet. The calculated part is set
+  // to 0 (and can be restored); items you added by hand are only removed
+  // if you say so.
+  async function removeLine(t) {
+    if (isViewer) return
+    const manualRows = t.rows.filter((r) => r.source === 'manual')
+    let alsoManual = false
+    if (manualRows.length > 0) {
+      alsoManual = window.confirm(
+        `This line also has ${t.manualQty} added by hand. Remove those too?\n\nOK = remove everything, Cancel = only remove the calculated amount.`
+      )
+    }
+    if (t.ruleQty > 0 || t.overrideRow) {
+      await setLineQty({ ...t, manualQty: 0 }, 0)
+    }
+    if (alsoManual) {
+      const ids = manualRows.map((r) => r.id)
+      await supabase.from('event_equipment_items').delete().in('id', ids)
+      setItems((prev) => prev.filter((r) => !ids.includes(r.id)))
+    }
+  }
+
   async function removeManualRow(row) {
     if (isViewer) return
     await supabase.from('event_equipment_items').delete().eq('id', row.id)
@@ -270,13 +384,49 @@ export default function EquipmentSignOut() {
         "Sync from Posting Sheet" rebuilds the auto-issued rows below (bibs / pullovers / cleaning
         gear per officer type) from every posting on the current Posting Sheet and the rules set
         up on the Catalog &amp; Rules page — including postings that don't have an officer
-        assigned yet. Equipment is packed once per phase (Build-Up, Breakdown, Event Day) at the
-        highest single-day/section count for that phase, not summed across every day, since the
-        same kit gets reused. A rule tied to a specific officer type (e.g. cleaning gear tied to
-        "Event Cleaner") only shows up here when that type is actually posted on the sheet. Safe
-        to run again any time officers or sections change. Items you add manually below (radios,
-        gazebos, bins, etc.) are never touched by syncing.
+        assigned yet. Everything running on the same day (every hall and area) is added together.
+        If there is more than one build-up day, the day with the most security sets the quantity,
+        and that one pack is reused for the other build-up days and the event — days are never
+        added up. A rule tied to a specific officer type (e.g. cleaning gear tied to "Event
+        Cleaner") only shows up when that type is actually posted. Syncing never touches items
+        you add manually or quantities you type over. Wrong number? Tap the Qty and type the right
+        one, or hit Remove.
       </p>
+
+      <details className="no-print equipment-diagnostics">
+        <summary>
+          How the Posting Sheet was read ({sectionDiagnostics.length} sections
+          {sectionIssues.length > 0 ? ` — ⚠ ${sectionIssues.length} not picked up by any rule` : ' — all counted'})
+        </summary>
+        <table className="simple-table">
+          <thead>
+            <tr>
+              <th>Section</th>
+              <th>Day</th>
+              <th>Phase / Category</th>
+              <th>Postings</th>
+              <th>Counted?</th>
+            </tr>
+          </thead>
+          <tbody>
+            {sectionDiagnostics.map((d) => (
+              <tr key={d.id} className={d.status !== 'ok' ? 'warning-cell' : ''}>
+                <td>{d.label}</td>
+                <td>{d.dayLabel}</td>
+                <td>
+                  {phaseLabel(d.phase)} / {postingCategoryLabel(d.posting_category)}
+                </td>
+                <td>{d.postings}</td>
+                <td>{d.status === 'ok' ? '✔ Yes' : `⚠ ${d.note}`}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        <p style={{ fontSize: 13, margin: '6px 0 0' }}>
+          If a section is missing kit, check its Phase and Category tags on the Posting Sheet — the
+          rules only apply to sections with a matching Phase / Category.
+        </p>
+      </details>
 
       <table className="simple-table equipment-table">
         <thead>
@@ -299,9 +449,10 @@ export default function EquipmentSignOut() {
             const isOpen = !!expanded[t.equipment_item_id]
             const manualRows = t.rows.filter((r) => r.source === 'manual')
             const ruleRows = t.rows.filter((r) => r.source === 'rule')
+            const isRemoved = t.qty === 0
             return (
               <Fragment key={t.equipment_item_id}>
-                <tr>
+                <tr className={isRemoved ? 'no-print equipment-removed-row' : ''}>
                   <td>
                     <button
                       type="button"
@@ -315,7 +466,28 @@ export default function EquipmentSignOut() {
                     {item?.name || '(deleted item)'}
                   </td>
                   <td>{item?.default_make || 'N/A'}</td>
-                  <td>{t.qty}</td>
+                  <td>
+                    {/* On screen: tap and type the quantity you want. In print: just the number. */}
+                    <input
+                      key={`${t.equipment_item_id}-${t.qty}`}
+                      type="number"
+                      min="0"
+                      inputMode="numeric"
+                      className="no-print equipment-qty-input"
+                      defaultValue={t.qty}
+                      disabled={isViewer}
+                      onBlur={(e) => setLineQty(t, e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') e.target.blur()
+                      }}
+                    />
+                    <span className="print-only-inline">{t.qty}</span>
+                    {t.overrideRow && !isRemoved && (
+                      <span className="no-print equipment-edited-tag" title={`Calculated amount was ${t.ruleQty}`}>
+                        edited
+                      </span>
+                    )}
+                  </td>
                   <td className="checkbox-cell">
                     <input
                       type="checkbox"
@@ -324,7 +496,23 @@ export default function EquipmentSignOut() {
                       onChange={() => toggleVerified(t.equipment_item_id)}
                     />
                   </td>
-                  <td className="no-print"></td>
+                  <td className="no-print equipment-line-actions">
+                    {!isViewer && !isRemoved && (
+                      <button type="button" className="btn-delete" onClick={() => removeLine(t)}>
+                        Remove
+                      </button>
+                    )}
+                    {!isViewer && isRemoved && t.overrideRow && (
+                      <button type="button" onClick={() => resetLine(t)}>
+                        Restore ({t.ruleQty})
+                      </button>
+                    )}
+                    {!isViewer && !isRemoved && t.overrideRow && (
+                      <button type="button" onClick={() => resetLine(t)}>
+                        Reset to {t.ruleQty}
+                      </button>
+                    )}
+                  </td>
                 </tr>
                 {isOpen && (
                   <tr className="no-print equipment-row-detail">
@@ -359,10 +547,26 @@ export default function EquipmentSignOut() {
                       </div>
                       {ruleRows.length > 0 && (
                         <div>
-                          <strong>Auto-issued (from Posting Sheet rules):</strong>
+                          <strong>Calculated from the Posting Sheet</strong> (busiest day sets the
+                          quantity; halls running at the same time are added together):
                           <ul>
-                            {ruleRows.map((r) => <li key={r.id}>{r.officer_label || `${r.qty} needed`}</li>)}
+                            {ruleRows.flatMap((r) =>
+                              (r.officer_label || `${r.qty} needed`).split('\n').map((line, i) => (
+                                <li key={`${r.id}-${i}`}>{line}</li>
+                              ))
+                            )}
                           </ul>
+                        </div>
+                      )}
+                      {t.overrideRow && (
+                        <div>
+                          <strong>Changed by hand:</strong> the calculated part was {t.ruleQty}; you set it to{' '}
+                          {t.auto}.{' '}
+                          {!isViewer && (
+                            <button type="button" onClick={() => resetLine(t)}>
+                              Reset to calculated ({t.ruleQty})
+                            </button>
+                          )}
                         </div>
                       )}
                       {manualRows.length > 0 && (
