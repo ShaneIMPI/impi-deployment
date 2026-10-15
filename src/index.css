@@ -558,3 +558,21 @@ input, select { padding: 6px; }
   .posting-table th:nth-child(10), .posting-table td:nth-child(10) { width: 6%; }
   .posting-table th:nth-child(11), .posting-table td:nth-child(11) { width: 7%; }
 }
+
+/* Equipment sheet: quick quantity fix, remove/restore, and the
+   "how the sheet was read" panel. */
+.equipment-qty-input { width: 64px; padding: 4px 6px; text-align: center; }
+.equipment-edited-tag {
+  margin-left: 6px;
+  font-size: 11px;
+  color: var(--impi-red);
+  font-weight: 600;
+  text-transform: uppercase;
+}
+.equipment-line-actions { white-space: nowrap; }
+.equipment-line-actions button { margin-right: 6px; }
+.equipment-removed-row td { color: #999; text-decoration: line-through; background: #fafafa; }
+.equipment-removed-row .equipment-line-actions,
+.equipment-removed-row .equipment-line-actions button { text-decoration: none; }
+.equipment-diagnostics { margin: 10px 0 16px; max-width: 900px; }
+.equipment-diagnostics summary { cursor: pointer; font-weight: 600; margin-bottom: 6px; }
