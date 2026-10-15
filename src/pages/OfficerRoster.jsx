@@ -19,6 +19,8 @@ const emptyRate = {
   psira_grade: '',
   sell_price: '',
   pay_rate: '',
+  no_special_events_pay_adj: '',
+  no_psira_pay_adj: '',
 }
 
 export default function OfficerRoster() {
@@ -123,6 +125,8 @@ export default function OfficerRoster() {
         region: t.region || null,
         sell_price: Number(t.sell_price) || 0,
         pay_rate: Number(t.pay_rate) || 0,
+        no_special_events_pay_adj: Number(t.no_special_events_pay_adj) || 0,
+        no_psira_pay_adj: Number(t.no_psira_pay_adj) || 0,
       })
       .eq('id', t.id)
   }
@@ -143,6 +147,8 @@ export default function OfficerRoster() {
       psira_grade: rateForm.psira_grade,
       sell_price: Number(rateForm.sell_price) || 0,
       pay_rate: Number(rateForm.pay_rate) || 0,
+      no_special_events_pay_adj: Number(rateForm.no_special_events_pay_adj) || 0,
+      no_psira_pay_adj: Number(rateForm.no_psira_pay_adj) || 0,
     })
     if (error) {
       setRateError(error.message)
@@ -315,6 +321,22 @@ export default function OfficerRoster() {
                 value={rateForm.pay_rate}
                 onChange={(e) => setRateForm({ ...rateForm, pay_rate: e.target.value })}
               />
+              <input
+                type="number"
+                placeholder="No Special Events adj."
+                title="Added to Pay Rate when the posting's Special Events tick is off (usually a negative number)"
+                value={rateForm.no_special_events_pay_adj}
+                onChange={(e) =>
+                  setRateForm({ ...rateForm, no_special_events_pay_adj: e.target.value })
+                }
+              />
+              <input
+                type="number"
+                placeholder="No PSIRA adj."
+                title="Added to Pay Rate when the posting's PSIRA No. is blank (usually a negative number)"
+                value={rateForm.no_psira_pay_adj}
+                onChange={(e) => setRateForm({ ...rateForm, no_psira_pay_adj: e.target.value })}
+              />
               <button type="submit" className="btn-primary">
                 Add Rate
               </button>
@@ -329,6 +351,10 @@ export default function OfficerRoster() {
                 <th>PSIRA Grade</th>
                 <th>Sell Price (per shift)</th>
                 <th>Pay Rate (per shift)</th>
+                <th title="Added to Pay Rate when the posting's Special Events tick is off">
+                  No Special Events adj.
+                </th>
+                <th title="Added to Pay Rate when the posting's PSIRA No. is blank">No PSIRA adj.</th>
                 {!isViewer && <th></th>}
               </tr>
             </thead>
@@ -371,6 +397,24 @@ export default function OfficerRoster() {
                       value={t.pay_rate}
                       disabled={isViewer}
                       onChange={(e) => updateType(t.id, 'pay_rate', e.target.value)}
+                    />
+                  </td>
+                  <td>
+                    <input
+                      type="number"
+                      value={t.no_special_events_pay_adj ?? 0}
+                      disabled={isViewer}
+                      onChange={(e) =>
+                        updateType(t.id, 'no_special_events_pay_adj', e.target.value)
+                      }
+                    />
+                  </td>
+                  <td>
+                    <input
+                      type="number"
+                      value={t.no_psira_pay_adj ?? 0}
+                      disabled={isViewer}
+                      onChange={(e) => updateType(t.id, 'no_psira_pay_adj', e.target.value)}
                     />
                   </td>
                   {!isViewer && (

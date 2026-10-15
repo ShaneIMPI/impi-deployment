@@ -15,6 +15,10 @@ export default function PayRun() {
   const [savingRegion, setSavingRegion] = useState(false)
   const [editingRateId, setEditingRateId] = useState(null)
   const [rateSaving, setRateSaving] = useState(false)
+  const [editingOverrideSlotId, setEditingOverrideSlotId] = useState(null)
+  const [overrideSaving, setOverrideSaving] = useState(false)
+  const [editingHoursSlotId, setEditingHoursSlotId] = useState(null)
+  const [hoursSaving, setHoursSaving] = useState(false)
 
   useEffect(() => {
     load()
@@ -93,8 +97,52 @@ export default function PayRun() {
     setRateSaving(false)
   }
 
+  async function saveManualOverride(slotId, value) {
+    setOverrideSaving(true)
+    const manual_pay_rate = value === '' ? null : Number(value)
+    const { error } = await supabase
+      .from('posting_slots')
+      .update({ manual_pay_rate })
+      .eq('id', slotId)
+    if (!error) {
+      setSlots((prev) => prev.map((s) => (s.id === slotId ? { ...s, manual_pay_rate } : s)))
+      setEditingOverrideSlotId(null)
+    }
+    setOverrideSaving(false)
+  }
+
+  async function saveManualHours(slotId, value) {
+    setHoursSaving(true)
+    const manual_hours_worked = value === '' ? null : Number(value)
+    const { error } = await supabase
+      .from('posting_slots')
+      .update({ manual_hours_worked })
+      .eq('id', slotId)
+    if (!error) {
+      setSlots((prev) =>
+        prev.map((s) => (s.id === slotId ? { ...s, manual_hours_worked } : s))
+      )
+      setEditingHoursSlotId(null)
+    }
+    setHoursSaving(false)
+  }
+
   function exportCsv() {
-    const rows = [['No.', 'Name & Surname', 'ID Number', 'PSIRA No.', 'BIB No.', 'Posting', 'Pay Rate', 'Shifts', 'Amount', 'Confirmed']]
+    const rows = [
+      [
+        'No.',
+        'Name & Surname',
+        'ID Number',
+        'PSIRA No.',
+        'BIB No.',
+        'Posting',
+        'Hours Worked',
+        'Pay Rate',
+        'Shifts',
+        'Amount',
+        'Confirmed',
+      ],
+    ]
     let counter = 0
     let total = 0
     slots.forEach((slot) => {
@@ -117,6 +165,7 @@ export default function PayRun() {
         slot.psira_number || '',
         slot.bib_serial || '',
         view.posting,
+        view.hoursWorked ?? 12,
         view.payRate,
         view.shifts,
         view.payAmount.toFixed(2),
@@ -124,7 +173,7 @@ export default function PayRun() {
       ])
     })
     rows.push([])
-    rows.push(['', '', '', '', '', '', '', 'TOTAL', total.toFixed(2)])
+    rows.push(['', '', '', '', '', '', '', '', 'TOTAL', total.toFixed(2)])
 
     const csv = rows.map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\n')
     const blob = new Blob([csv], { type: 'text/csv' })
@@ -188,7 +237,13 @@ export default function PayRun() {
             <th>PSIRA No.</th>
             <th>BIB No.</th>
             <th>Posting</th>
+            <th title="Auto-calculated from Time In/Time Out, or type a manual figure">
+              Hours Worked
+            </th>
             <th>Pay Rate</th>
+            <th title="Type a fixed amount here to override everything else for this one posting">
+              Manual Override
+            </th>
             <th>Shifts</th>
             <th>Amount</th>
             <th>Confirmed</th>
@@ -203,7 +258,7 @@ export default function PayRun() {
               counter = 0
               return (
                 <tr key={slot.id} className="section-row">
-                  <td colSpan={10}>{lineItem.section_text}</td>
+                  <td colSpan={12}>{lineItem.section_text}</td>
                 </tr>
               )
             }
@@ -224,6 +279,38 @@ export default function PayRun() {
                 <td>{slot.psira_number}</td>
                 <td>{slot.bib_serial}</td>
                 <td>{view.posting}</td>
+                <td className="no-print-input">
+                  {editingHoursSlotId === slot.id ? (
+                    <input
+                      type="number"
+                      className="time-edit-input"
+                      autoFocus
+                      defaultValue={slot.manual_hours_worked ?? view.hoursWorked ?? ''}
+                      placeholder="12"
+                      disabled={hoursSaving}
+                      onBlur={(e) => saveManualHours(slot.id, e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') e.target.blur()
+                      }}
+                    />
+                  ) : (
+                    <>
+                      <button
+                        type="button"
+                        className="no-print time-edit-btn"
+                        title={
+                          slot.manual_hours_worked !== null && slot.manual_hours_worked !== undefined
+                            ? 'Manually entered — click to change'
+                            : 'Auto-calculated from Time In/Time Out — click to correct'
+                        }
+                        onClick={() => setEditingHoursSlotId(slot.id)}
+                      >
+                        {view.hoursWorked ?? '12 (std)'}
+                      </button>
+                      <span className="print-only-inline">{view.hoursWorked ?? '12'}</span>
+                    </>
+                  )}
+                </td>
                 <td className="no-print-input">
                   {officerType ? (
                     <>
@@ -255,6 +342,36 @@ export default function PayRun() {
                     `R ${Number(view.payRate).toFixed(2)}`
                   )}
                 </td>
+                <td className="no-print-input">
+                  {editingOverrideSlotId === slot.id ? (
+                    <input
+                      type="number"
+                      className="time-edit-input"
+                      autoFocus
+                      defaultValue={slot.manual_pay_rate ?? ''}
+                      placeholder="Leave blank to clear"
+                      disabled={overrideSaving}
+                      onBlur={(e) => saveManualOverride(slot.id, e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') e.target.blur()
+                      }}
+                    />
+                  ) : (
+                    <>
+                      <button
+                        type="button"
+                        className="no-print time-edit-btn"
+                        title="Type a fixed pay amount for this one posting — beats the rate card, the hours proration, and the qualification adjustments"
+                        onClick={() => setEditingOverrideSlotId(slot.id)}
+                      >
+                        {view.isManualPay ? `R ${Number(slot.manual_pay_rate).toFixed(2)}` : '— set —'}
+                      </button>
+                      <span className="print-only-inline">
+                        {view.isManualPay ? `R ${Number(slot.manual_pay_rate).toFixed(2)}` : ''}
+                      </span>
+                    </>
+                  )}
+                </td>
                 <td>{view.shifts}</td>
                 <td>R {view.payAmount.toFixed(2)}</td>
                 <td className="checkbox-cell">
@@ -264,7 +381,7 @@ export default function PayRun() {
             )
           })}
           <tr className="total-row">
-            <td colSpan={8} style={{ textAlign: 'right' }}>
+            <td colSpan={10} style={{ textAlign: 'right' }}>
               <strong>TOTAL</strong>
             </td>
             <td>
