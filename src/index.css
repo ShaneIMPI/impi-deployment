@@ -447,6 +447,42 @@ input, select { padding: 6px; }
 }
 .equipment-signoff-footer h3 { font-size: 14px; margin: 12px 0 6px; color: var(--impi-dark); }
 
+/* OUT sign-offs on the left, BACK IN sign-offs on the right — CSS only.
+   The footer's children run in this order: OUT heading, then 3 x (title +
+   fields), then BACK IN heading, then 3 x (title + fields). That is 7 items
+   per side, so a 7-row grid filled column by column puts OUT in the left
+   column and BACK IN in the right. Stacks back into one column on narrow
+   phone screens so the fields stay easy to type into; print always keeps
+   two columns (see the @media print block below). */
+.equipment-signoff-footer {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: repeat(7, auto);
+  grid-auto-flow: column;
+  column-gap: 24px;
+  align-items: start;
+  /* thin divider line between the two columns */
+  background-image: linear-gradient(#ccc, #ccc);
+  background-size: 1px calc(100% - 14px);
+  background-position: 50% 14px;
+  background-repeat: no-repeat;
+}
+.equipment-signoff-footer h3 { margin-top: 0; }
+.equipment-signoff-footer .inline-form { max-width: none; }
+@media (max-width: 640px) {
+  .equipment-signoff-footer {
+    grid-template-columns: 1fr;
+    grid-template-rows: none;
+    grid-auto-flow: row;
+    background-image: none;
+  }
+  .equipment-signoff-footer h3:nth-of-type(2) {
+    margin-top: 18px;
+    padding-top: 12px;
+    border-top: 2px solid var(--impi-dark);
+  }
+}
+
 .print-only-inline { display: none; }
 @media print {
   .no-print, .no-print-input select, button { display: none !important; }
@@ -463,6 +499,40 @@ input, select { padding: 6px; }
   .posting-table td { padding: 6px 5px; font-size: 10px; }
   .posting-table th { font-size: 10px; }
   @page { size: landscape; margin: 8mm; }
+
+  /* Equipment sheet: keep OUT / BACK IN side by side, together on one page,
+     even if the narrow-screen rule above would stack them. Compact spacing:
+     Name, ID No. and Job Title share one row per sign-off so all six
+     sign-offs fit under the equipment list. */
+  .equipment-signoff-footer {
+    break-inside: avoid;
+    page-break-inside: avoid;
+    grid-template-columns: 1fr 1fr !important;
+    grid-template-rows: repeat(7, auto) !important;
+    grid-auto-flow: column !important;
+    background-image: linear-gradient(#ccc, #ccc) !important;
+    margin-top: 14px;
+    padding-top: 6px;
+  }
+  .equipment-signoff-footer h3 { margin: 2px 0 0; font-size: 13px; }
+  .equipment-signoff-footer h3:nth-of-type(2) { margin-top: 2px; padding-top: 0; border-top: none; }
+  .equipment-signoff-footer h4 { margin: 10px 0 4px; font-size: 12px; }
+  .equipment-signoff-footer .inline-form {
+    flex-wrap: nowrap;
+    gap: 6px;
+    margin-bottom: 0;
+  }
+  .equipment-signoff-footer .inline-form input {
+    flex: 1 1 0;
+    min-width: 0;
+    padding: 5px 4px;
+    font-size: 10px;
+  }
+  /* Name : ID No. : Job Title — the ID needs room for 13 digits and the
+     Job Title for things like "Senior Operations Manager". */
+  .equipment-signoff-footer .inline-form input:nth-child(1) { flex: 1.5 1 0; }
+  .equipment-signoff-footer .inline-form input:nth-child(2) { flex: 1.1 1 0; }
+  .equipment-signoff-footer .inline-form input:nth-child(3) { flex: 1.7 1 0; }
 
   /* Force the table to fit exactly within the printable page width so no
      column gets pushed off the page and clipped. Overrides the on-screen
