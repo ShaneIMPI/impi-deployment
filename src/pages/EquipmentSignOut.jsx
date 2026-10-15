@@ -136,7 +136,7 @@ export default function EquipmentSignOut() {
       // touched, so a fix you made by hand survives a re-sync.
       await supabase.from('event_equipment_items').delete().eq('event_id', eventId).eq('source', 'rule')
 
-      const freshRows = generateRuleAssignments(eventId, slotsWithSection, rules)
+      const freshRows = generateRuleAssignments(eventId, slotsWithSection, rules, catalogById)
       if (freshRows.length > 0) {
         const concurrency = 200
         for (let i = 0; i < freshRows.length; i += concurrency) {
