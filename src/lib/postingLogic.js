@@ -105,7 +105,13 @@ export function deriveSlotView(slot, lineItem, officerType, effectiveTypeName) {
     grade,
     lineItem?.posting_location
   )
-  const shifts = lineItem?.shifts ?? 1
+  // Every posting slot is exactly one shift for one day — the Builder
+  // sheet already splits each day into its own SECTION HEADER, so a
+  // single slot is never more than one shift. The quote's old
+  // "Shifts / Units" column (lineItem.shifts) is deliberately NOT used
+  // here any more: multiplying pay/sell amounts by it was double- and
+  // triple-billing single-day postings whenever that column held 2 or 3.
+  const shifts = 1
 
   const hasManualPay =
     slot?.manual_pay_rate !== null &&
