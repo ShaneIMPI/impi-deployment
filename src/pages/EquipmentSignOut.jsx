@@ -5,6 +5,7 @@ import { getIsViewer } from '../lib/roles'
 import {
   buildSlotSectionMap,
   generateRuleAssignments,
+  groupCountLinesByPhase,
   diagnoseSections,
   phaseLabel,
   postingCategoryLabel,
@@ -548,14 +549,34 @@ export default function EquipmentSignOut() {
                       {ruleRows.length > 0 && (
                         <div>
                           <strong>Calculated from the Posting Sheet</strong> (busiest day sets the
-                          quantity; halls running at the same time are added together):
-                          <ul>
-                            {ruleRows.flatMap((r) =>
-                              (r.officer_label || `${r.qty} needed`).split('\n').map((line, i) => (
-                                <li key={`${r.id}-${i}`}>{line}</li>
-                              ))
-                            )}
-                          </ul>
+                          quantity; halls running at the same time are added together; bibs add the
+                          Build-Up pack and the Event pack, as clean ones are used on the day):
+                          {(() => {
+                            const { groups, other } = groupCountLinesByPhase(ruleRows)
+                            return (
+                              <>
+                                {groups.map((g) => (
+                                  <div key={g.label} style={{ marginTop: 6 }}>
+                                    <strong>
+                                      {g.label} — busiest day: {g.peak}
+                                    </strong>
+                                    <ul>
+                                      {g.lines.map((line, i) => (
+                                        <li key={i}>{line}</li>
+                                      ))}
+                                    </ul>
+                                  </div>
+                                ))}
+                                {other.length > 0 && (
+                                  <ul>
+                                    {other.map((line, i) => (
+                                      <li key={i}>{line}</li>
+                                    ))}
+                                  </ul>
+                                )}
+                              </>
+                            )
+                          })()}
                         </div>
                       )}
                       {t.overrideRow && (
