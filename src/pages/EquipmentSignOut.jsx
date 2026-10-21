@@ -515,6 +515,43 @@ export default function EquipmentSignOut() {
                     )}
                   </td>
                 </tr>
+                {/* Print version of the expanded detail — always included on paper,
+                    whether or not the row is open on screen. */}
+                {!isRemoved && (
+                  <tr className="print-only-row equipment-print-detail">
+                    <td colSpan={5}>
+                      <div>
+                        <strong>Numbers out:</strong>{' '}
+                        {verificationByItem[t.equipment_item_id]?.numbers_out || '________________________________'}
+                        {'   '}
+                        <strong>Numbers back:</strong>{' '}
+                        {verificationByItem[t.equipment_item_id]?.numbers_back || '________________________________'}
+                        {'   '}
+                        <strong>Reconciled:</strong>{' '}
+                        {verificationByItem[t.equipment_item_id]?.numbers_reconciled ? '✔' : '☐'}
+                      </div>
+                      {ruleRows.length > 0 &&
+                        (() => {
+                          const { groups, other } = groupCountLinesByPhase(ruleRows)
+                          return (
+                            <div className="equipment-print-count">
+                              <strong>Calculated from the Posting Sheet:</strong>{' '}
+                              {groups.map((g) => (
+                                <span key={g.label} className="equipment-print-phase">
+                                  <strong>
+                                    {g.label} (busiest day {g.peak}):
+                                  </strong>{' '}
+                                  {g.lines.map((l) => l.replace(/\s*\((Build-Up|Event Day|Breakdown)\)/, '')).join(' · ')}
+                                  {'  '}
+                                </span>
+                              ))}
+                              {other.length > 0 && <strong>{other.join(' · ')}</strong>}
+                            </div>
+                          )
+                        })()}
+                    </td>
+                  </tr>
+                )}
                 {isOpen && (
                   <tr className="no-print equipment-row-detail">
                     <td colSpan={5}>
