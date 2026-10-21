@@ -484,9 +484,14 @@ input, select { padding: 6px; }
 }
 
 .print-only-inline { display: none; }
+.print-only-row { display: none; }
 @media print {
   .no-print, .no-print-input select, button { display: none !important; }
   .print-only-inline { display: block !important; }
+  .print-only-row { display: table-row !important; }
+  .equipment-print-detail td { font-size: 10px; padding: 2px 6px 8px; border-top: none; }
+  .equipment-print-detail { break-inside: avoid; page-break-inside: avoid; }
+  .equipment-print-count { margin-top: 2px; }
   body { background: white; }
   .page { max-width: 100%; padding: 0; }
   .posting-table th { background: var(--impi-red) !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
