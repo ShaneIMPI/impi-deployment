@@ -240,6 +240,14 @@ export function isEventDayOnlyItem(item) {
   return /pull\s*-?\s*over/i.test((item && item.name) || '')
 }
 
+// Bibs are packed and delivered for Build-Up, then clean ones are used on
+// the Event Day (build-ups can run over several days), so a bib's quantity
+// is the Build-Up peak PLUS the Event-Day peak — not one shared number.
+// Breakdown reuses the Event Day bibs.
+export function isBibItem(item) {
+  return /\bbibs?\b/i.test((item && item.name) || '')
+}
+
 export function generateRuleAssignments(eventId, slotsWithSection, rules, catalogById = {}) {
   const sections = groupSections(slotsWithSection)
 
@@ -290,19 +298,59 @@ export function generateRuleAssignments(eventId, slotsWithSection, rules, catalo
   needs.forEach((perGroup, equipmentItemId) => {
     const days = [...perGroup.values()].sort((a, b) => a.group.sort - b.group.sort)
     const peak = days.reduce((best, d) => (d.need > best.need ? d : best), days[0])
+    const bib = isBibItem(catalogById[equipmentItemId])
+    const phasePeak = (phase) =>
+      days.filter((d) => d.group.phase === phase).reduce((m, d) => Math.max(m, d.need), 0)
+    const buildUpPeak = phasePeak('build_up')
+    const eventPeak = Math.max(phasePeak('event_day'), phasePeak('breakdown'))
+    // The day(s) that set the quantity: the single busiest day normally;
+    // for bibs, the busiest Build-Up day and the busiest Event/Breakdown day.
+    const used = new Set()
+    if (bib) {
+      const pickFirst = (match, target) => {
+        const d = days.find((x) => match(x.group.phase) && x.need === target)
+        if (d) used.add(d)
+      }
+      pickFirst((ph) => ph === 'build_up', buildUpPeak)
+      pickFirst((ph) => ph !== 'build_up', eventPeak)
+    } else used.add(peak)
     const lines = days.map(
-      (d) => `${d === peak ? '✔ ' : ''}${d.group.dayLabel} (${phaseLabel(d.group.phase)}): ${d.need}${d === peak ? ' — used' : ''}`
+      (d) => `${used.has(d) ? '✔ ' : ''}${d.group.dayLabel} (${phaseLabel(d.group.phase)}): ${d.need}${used.has(d) ? ' — used' : ''}`
     )
+    if (bib) lines.push(`Build-Up pack ${buildUpPeak} + Event pack ${eventPeak} = ${buildUpPeak + eventPeak}`)
     rows.push({
       event_id: eventId,
       equipment_item_id: equipmentItemId,
       posting_slot_id: null,
       officer_label: lines.join('\n'),
-      qty: peak.need,
+      qty: bib ? buildUpPeak + eventPeak : peak.need,
       source: 'rule',
     })
   })
   return rows
+}
+
+// Splits an item's saved "how it was counted" text (one line per day, e.g.
+// "✔ 23 Oct 2026 (Build-Up): 17 — used") into Build-Up / Event Day /
+// Breakdown groups, each with its own busiest-day number. Display only —
+// the quantity that is issued is still the single busiest day overall.
+export function groupCountLinesByPhase(rows) {
+  const groups = PHASES.map((p) => ({ label: p.label, lines: [], peak: 0 }))
+  const other = []
+  rows.forEach((r) => {
+    String(r.officer_label || '')
+      .split('\n')
+      .filter(Boolean)
+      .forEach((line) => {
+        const m = line.match(/\((Build-Up|Event Day|Breakdown)\):\s*(\d+)/)
+        const g = m && groups.find((x) => x.label === m[1])
+        if (g) {
+          g.lines.push(line)
+          g.peak = Math.max(g.peak, Number(m[2]))
+        } else other.push(line)
+      })
+  })
+  return { groups: groups.filter((g) => g.lines.length > 0), other }
 }
 
 // For the "How the sheet was counted" panel: one entry per Posting Sheet
