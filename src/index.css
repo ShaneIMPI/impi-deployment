@@ -876,3 +876,122 @@ input, select { padding: 6px; }
     table { display: block; max-width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; }
   }
 }
+
+/* =====================================================================
+   MODERN PRINT STYLE — refreshes how printed Posting Sheets, Pay Runs
+   and Equipment Sign-Out sheets look. Colours, borders, type and
+   spacing only: column widths, page breaks and content are unchanged.
+   ===================================================================== */
+@media print {
+  @page {
+    size: landscape;
+    margin: 9mm 9mm 14mm 9mm;
+    @bottom-left {
+      content: "IMPI RMS (Pty) Ltd t/a Amandla Protection Services  |  012 543 0640  |  info@impi-secure.co.za";
+      font: 7.5pt Calibri, "Segoe UI", Arial, sans-serif;
+      color: #777;
+    }
+    @bottom-right {
+      content: "Page " counter(page) " of " counter(pages);
+      font: 7.5pt Calibri, "Segoe UI", Arial, sans-serif;
+      color: #777;
+    }
+  }
+
+  body { color: #231F20; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+
+  /* Header */
+  .app-header.print-header {
+    border-bottom: 0;
+    padding: 0 0 8px;
+    margin-bottom: 8px;
+    gap: 14px;
+    position: relative;
+  }
+  .app-header.print-header::after {
+    content: "";
+    position: absolute; left: 0; right: 0; bottom: 0; height: 3px;
+    background: linear-gradient(90deg, #DE1819 0 78%, #FDDB07 78% 100%);
+    -webkit-print-color-adjust: exact; print-color-adjust: exact;
+  }
+  .app-header-logo { height: 50px; }
+  .app-header-company { font-size: 9px; letter-spacing: .1em; color: #666; font-weight: 600; }
+  .app-header-title { font-size: 20px; font-weight: 700; letter-spacing: -.01em; margin-top: 3px; }
+
+  /* Event details strip */
+  .event-meta {
+    display: flex; flex-wrap: wrap; gap: 3px 26px;
+    background: #f4f5f7 !important;
+    border: 1px solid #d9dce1; border-left: 4px solid #DE1819;
+    border-radius: 3px;
+    padding: 6px 10px; margin-bottom: 8px;
+    font-size: 11px; line-height: 1.35;
+    -webkit-print-color-adjust: exact; print-color-adjust: exact;
+  }
+  .event-meta strong { font-size: 8.5px; letter-spacing: .07em; color: #666; font-weight: 700; margin-right: 3px; }
+
+  /* Tables */
+  .simple-table, .posting-table { border-collapse: collapse; margin-top: 4px; }
+  .simple-table thead th, .posting-table thead th {
+    background: #231F20 !important; color: #fff !important;
+    border: 1px solid #231F20;
+    border-bottom: 2.5px solid #DE1819;
+    font-size: 8.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
+    padding: 6px 5px; vertical-align: bottom;
+    -webkit-print-color-adjust: exact; print-color-adjust: exact;
+  }
+  .simple-table td, .posting-table td { border: 0; border-bottom: 1px solid #d3d6db; border-right: 1px solid #e6e8ec; }
+  .simple-table td:last-child, .posting-table td:last-child { border-right: 0; }
+  .simple-table tbody tr:nth-child(even), .posting-table tbody tr:nth-child(even) { background: #fafafb !important; }
+  .posting-table tbody tr:not(.section-row):not(.total-row) td { height: 7.5mm; vertical-align: middle; }
+  .posting-table td { font-size: 10px; }
+  .posting-table th:first-child { white-space: nowrap; }
+
+  /* Typed values print as clean text, not grey form boxes */
+  .posting-table input, .simple-table input:not([type="checkbox"]) {
+    background: transparent !important; border: 0 !important; outline: 0 !important;
+    color: #231F20 !important; -webkit-text-fill-color: #231F20;
+    font: inherit; font-size: 10px; padding: 0; box-shadow: none !important;
+  }
+  .posting-table input[type="checkbox"], .simple-table input[type="checkbox"] {
+    accent-color: #231F20; width: 11px; height: 11px;
+  }
+
+  /* Section headers */
+  .section-row td, .section-row:nth-child(even) td {
+    background: #FFF4B8 !important;
+    border-top: 1px solid #e3c400; border-bottom: 1px solid #e3c400; border-right: 0;
+    border-left: 0;
+    box-shadow: inset 4px 0 0 #FDDB07;
+    padding: 6px 10px !important;
+    font-size: 10.5px !important; font-weight: 700; letter-spacing: .02em;
+    -webkit-print-color-adjust: exact; print-color-adjust: exact;
+  }
+
+  /* Totals */
+  .total-row td {
+    background: #eceef1 !important; font-weight: 700; font-size: 11px !important;
+    border-top: 2px solid #231F20; border-bottom: 0;
+    -webkit-print-color-adjust: exact; print-color-adjust: exact;
+  }
+
+  /* Signature thumbnails */
+  .signature-thumb { border: 0; border-radius: 0; height: 26px; }
+
+  /* Equipment sheet detail rows */
+  .equipment-print-detail td { color: #444; background: #fff !important; border-bottom: 1px solid #d3d6db; }
+
+  /* Equipment sign-off blocks */
+  .equipment-signoff-footer { border-top: 2px solid #231F20; margin-top: 16px; padding-top: 8px; }
+  .equipment-signoff-footer h3 {
+    display: inline-block; background: #231F20; color: #fff;
+    padding: 2px 10px; border-radius: 2px; font-size: 11px; letter-spacing: .08em;
+    -webkit-print-color-adjust: exact; print-color-adjust: exact;
+  }
+  .equipment-signoff-footer h4 { color: #DE1819; font-size: 10.5px; letter-spacing: .02em; }
+  .equipment-signoff-footer .inline-form input {
+    border: 0 !important; border-bottom: 1px solid #555 !important; border-radius: 0 !important;
+    background: transparent !important; color: #231F20; -webkit-text-fill-color: #231F20;
+  }
+  .equipment-signoff-footer .inline-form input::placeholder { color: #999; -webkit-text-fill-color: #999; font-size: 8.5px; }
+}
