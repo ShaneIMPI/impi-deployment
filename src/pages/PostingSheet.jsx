@@ -738,7 +738,7 @@ export default function PostingSheet() {
                         officer_id: null,
                       })
                     }}
-                    placeholder="Name & Surname"
+                    placeholder={blankMode ? '' : 'Name & Surname'}
                   />
                 </td>
                 <td>
