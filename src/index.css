@@ -995,3 +995,12 @@ input, select { padding: 6px; }
   }
   .equipment-signoff-footer .inline-form input::placeholder { color: #999; -webkit-text-fill-color: #999; font-size: 8.5px; }
 }
+
+/* Blank / empty fields must print empty — never show placeholder hints. */
+@media print {
+  .posting-table input::placeholder,
+  .simple-table input::placeholder {
+    color: transparent !important;
+    -webkit-text-fill-color: transparent !important;
+  }
+}
